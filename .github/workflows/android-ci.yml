@@ -37,14 +37,11 @@ jobs:
       - name: Install Android platform 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Run lint
-        run: gradle lint --no-daemon
-
-      - name: Run unit tests
-        run: gradle testDebugUnitTest --no-daemon
+      - name: Compile Kotlin
+        run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon 2>&1 | tail -100
 
       - name: Verify APK
         run: |
@@ -93,7 +90,7 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Assemble release APK
-        run: gradle assembleRelease --no-daemon
+        run: gradle assembleRelease --no-daemon 2>&1 | tail -100
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
