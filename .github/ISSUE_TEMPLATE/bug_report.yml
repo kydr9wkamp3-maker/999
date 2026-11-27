@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible app/codec issue without attaching private images
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not upload personal photos, DNG, keystores, device serials, IMEI, MAC/IP addresses, or private EXIF data.
+        If an image is needed, provide a sanitized fixture reference and SHA-256 only after checking its license.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version / commit
+      placeholder: e.g. version name and commit SHA
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      description: Do not include serial or account identifiers.
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android release and API level
+    validations:
+      required: true
+  - type: dropdown
+    id: codec
+    attributes:
+      label: Codec / mode
+      options:
+        - ADAMANT-1 prototype / Exact
+        - ADAMANT-1 prototype / Visual-lossless
+        - ADAMANT-1 prototype / Progressive
+        - PNG
+        - JPEG quality 95
+        - WebP lossless
+        - WebP quality 95
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include source type (camera JPEG, PNG, synthetic), format and dimensions; do not attach private input.
+      placeholder: 1. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-observed
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: input
+    id: hashes
+    attributes:
+      label: Sanitized fixture SHA-256 / CSV artifact reference
+      description: Tell us which hash domain this is (file bytes or normalized RGBA).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant sanitized logs
+      description: Remove private paths, serials, location data, and secrets before posting.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed personal images and device/account identifiers from this report.
+          required: true

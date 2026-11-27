@@ -1,0 +1,18 @@
+# Android / Gradle outputs
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Experimental datasets and device-specific captures stay outside Git
+benchmark/datasets/**
+!benchmark/datasets/README.md
