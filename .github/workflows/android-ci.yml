@@ -41,7 +41,12 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --no-daemon
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace > build_output.log 2>&1 || true
+          echo "=== LAST 100 LINES ==="
+          tail -100 build_output.log
+          echo "=== ERRORS ==="
+          grep -i "error\|FAILED\|exception" build_output.log | head -30 || echo "No errors found"
 
       - name: List APK outputs
         run: |
@@ -75,10 +80,13 @@ jobs:
           sha256sum "$APK"
 
       - name: Upload debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromecore-x-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            build_output.log
           retention-days: 14
 
   assemble-release:
