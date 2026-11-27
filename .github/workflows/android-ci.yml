@@ -41,33 +41,21 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --no-daemon || echo "Assemble failed but APK may exist from cache"
+        run: gradle assembleDebug --no-daemon --info
 
-      - name: Verify APK
+      - name: List build outputs
         run: |
-          APK=$(find app/build -name "*.apk" -type f -print -quit 2>/dev/null || true)
-          if [ -n "$APK" ]; then
-            echo "✅ APK found: $APK"
-            ls -lh "$APK"
-            sha256sum "$APK"
-          else
-            echo "⚠️  No APK in app/build (may be in cache from previous run)"
-          fi
-          exit 0
-
-      - name: Find APK
-        run: |
-          echo "=== Searching for APK ==="
-          find . -name "*.apk" -type f 2>/dev/null | head -10
-          echo "=== Checking expected location ==="
-          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Directory not found"
+          echo "=== app/build/outputs ==="
+          find app/build/outputs -type f 2>/dev/null || echo "No outputs dir"
+          echo "=== All APKs ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APKs found"
 
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromecore-x-debug
-          path: '**/app-debug.apk'
+          path: '**/*.apk'
           retention-days: 14
 
   assemble-release:
