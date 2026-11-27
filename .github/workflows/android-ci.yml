@@ -41,20 +41,7 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace > build_output.log 2>&1 || true
-          echo "=== LAST 100 LINES ==="
-          tail -100 build_output.log
-          echo "=== ERRORS ==="
-          grep -i "error\|FAILED\|exception" build_output.log | head -30 || echo "No errors found"
-
-      - name: List APK outputs
-        run: |
-          echo "=== APK files ==="
-          find . -name "*.apk" -type f 2>/dev/null || true
-          echo "=== Debug APK dir ==="
-          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Dir not found (APK may be elsewhere)"
-          find app/build -name "*.apk" 2>/dev/null || true
+        run: gradle assembleDebug --no-daemon
 
       - name: Verify APK
         run: |
