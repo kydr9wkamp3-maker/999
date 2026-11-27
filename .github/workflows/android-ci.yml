@@ -55,14 +55,19 @@ jobs:
           fi
           exit 0
 
+      - name: Find APK
+        run: |
+          echo "=== Searching for APK ==="
+          find . -name "*.apk" -type f 2>/dev/null | head -10
+          echo "=== Checking expected location ==="
+          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Directory not found"
+
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromecore-x-debug
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            build_output.log
+          path: '**/app-debug.apk'
           retention-days: 14
 
   assemble-release:
