@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Camera lens body -->
+    <path
+        android:fillColor="#2C2C33"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    <!-- Chrome ring -->
+    <path
+        android:fillColor="#C8CCD0"
+        android:pathData="M54,54m-34,0a34,34 0,1 1,68 0a34,34 0,1 1,-68 0"/>
+    <!-- Inner dark circle -->
+    <path
+        android:fillColor="#0A0A0C"
+        android:pathData="M54,54m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0"/>
+    <!-- Lens center -->
+    <path
+        android:fillColor="#1A1A1F"
+        android:pathData="M54,54m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"/>
+    <!-- Highlight -->
+    <path
+        android:fillColor="#4DD0E1"
+        android:pathData="M54,38m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0"/>
+    <!-- Small flash dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,42m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0"/>
+</vector>
