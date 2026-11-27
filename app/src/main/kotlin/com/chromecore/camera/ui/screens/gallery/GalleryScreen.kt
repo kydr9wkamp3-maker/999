@@ -32,7 +32,6 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Composable
 fun GalleryScreen(
     onPhotoClick: (String) -> Unit,
     onBack: () -> Unit
@@ -97,7 +96,6 @@ fun GalleryScreen(
 }
 
 @Composable
-@Composable
 private fun EmptyGallery() {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -127,7 +125,6 @@ private fun EmptyGallery() {
     }
 }
 
-@Composable
 @Composable
 private fun PhotoThumbnail(uri: String, onClick: () -> Unit) {
     AsyncImage(

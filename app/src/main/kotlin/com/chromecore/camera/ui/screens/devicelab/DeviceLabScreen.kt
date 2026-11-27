@@ -27,7 +27,6 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Composable
 fun DeviceLabScreen(onBack: () -> Unit) {
     var report by remember { mutableStateOf<DeviceReportData?>(null) }
     var isScanning by remember { mutableStateOf(false) }
@@ -132,7 +131,6 @@ fun DeviceLabScreen(onBack: () -> Unit) {
 }
 
 @Composable
-@Composable
 private fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
@@ -153,7 +151,6 @@ private fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit)
     }
 }
 
-@Composable
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(

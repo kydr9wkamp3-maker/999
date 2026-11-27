@@ -31,7 +31,6 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Composable
 fun EditorScreen(
     photoUri: String,
     onBack: () -> Unit
@@ -156,7 +155,6 @@ fun EditorScreen(
 }
 
 @Composable
-@Composable
 private fun IntensitySlider(
     value: Float,
     onValueChange: (Float) -> Unit,
@@ -185,7 +183,6 @@ private fun IntensitySlider(
     }
 }
 
-@Composable
 @Composable
 private fun FilterCarousel(
     presets: List<FilterEngine.FilterPreset>,
@@ -218,7 +215,6 @@ private fun FilterCarousel(
     }
 }
 
-@Composable
 @Composable
 private fun FilterThumbnail(
     name: String,
@@ -258,7 +254,6 @@ private fun FilterThumbnail(
 }
 
 @Composable
-@Composable
 private fun AdjustmentsPanel(
     brightness: Float,
     onBrightnessChange: (Float) -> Unit,
@@ -290,7 +285,6 @@ private fun AdjustmentsPanel(
     }
 }
 
-@Composable
 @Composable
 private fun AdjustmentSlider(
     label: String,
@@ -326,7 +320,6 @@ private fun AdjustmentSlider(
 }
 
 @Composable
-@Composable
 private fun EditorBottomBar(
     showAdjustments: Boolean,
     onToggleAdjustments: () -> Unit
@@ -346,7 +339,6 @@ private fun EditorBottomBar(
     }
 }
 
-@Composable
 @Composable
 private fun EditorToolButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
