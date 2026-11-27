@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chromecore X — Obsidian Chrome palette -->
+    <color name="obsidian_black">#FF0A0A0C</color>
+    <color name="graphite_dark">#FF1A1A1F</color>
+    <color name="graphite_mid">#FF2C2C33</color>
+    <color name="chrome_silver">#FFC8CCD0</color>
+    <color name="chrome_bright">#FFE8EAED</color>
+    <color name="platinum">#FFD4D7DC</color>
+    <color name="titanium_grey">#FF4A4A52</color>
+    <color name="cold_white">#FFF5F5F7</color>
+    <color name="cyan_accent">#FF4DD0E1</color>
+    <color name="cyan_glow">#FF80DEEA</color>
+    <color name="chrome_gradient_start">#FF2C2C33</color>
+    <color name="chrome_gradient_end">#FF1A1A1F</color>
+    <color name="metal_highlight">#FFFFFFFF</color>
+    <color name="metal_shadow">#FF0D0D10</color>
+    <color name="error_red">#FFFF5252</color>
+    <color name="success_green">#FF69F0AE</color>
+</resources>
