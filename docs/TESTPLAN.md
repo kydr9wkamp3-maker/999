@@ -11,7 +11,7 @@ Run automated tests on every change; perform device-only rows on a physical devi
 | CHM1 Exact residual | Synthetic RGBA round-trip with residual and source CRC | Executed successfully in host standalone test |
 | CHM1 Bounded-error | Synthetic RGBA maximum component error ≤ declared tolerance; routed tile preservation | Executed successfully in host standalone test |
 | JNI wrapper C++ syntax | Host compile with temporary minimal JNI stub | Executed; not an Android NDK/JNI ABI validation |
-| Kotlin metrics and CSV escaping | `./gradlew testDebugUnitTest` | Not run here: JDK/Android SDK unavailable |
+| Kotlin metrics, CSV escaping, and heap-budget/sample-size calculations | `./gradlew testDebugUnitTest` | Run in CI for each change; local run requires JDK/Android SDK |
 | Android native JNI test | `./gradlew connectedDebugAndroidTest` on device/emulator | Not run here |
 | Debug APK build | `./gradlew assembleDebug` | Not run here: JDK unavailable |
 | Manifest / resource XML parse | XML parser | Executed successfully |
@@ -32,7 +32,7 @@ Record Android build/API, app version, image name, lens, dimensions, MIME, sourc
 | API-dependent WebP | Run WebP lossless | Works on API 30+; unavailable clearly reported below API 30 |
 | EXIF rotations | Import images with orientation tags 1–8 | Display orientation correct; notes state normalization; pixels are internally consistent |
 | Repeated capture | Capture, process, repeat 10 times | No crash, stale camera binding, or unbounded cache-file growth |
-| Large image safety | Import/capture above computed limit | Clear rejection before full bitmap allocation; no OOM |
+| Large image safety | Capture above computed limit | Original JPEG is present in `Pictures/ADAMANT`; UI reports dimensions and limit, offers an explicitly lossy reduced copy, no silent Exact downscale; verify on physical device |
 | Background/interruption | Background app during encode, return | No crash; result/status remains coherent or operation is safely cancelled |
 | Offline behavior | Airplane mode; camera/gallery/compression/export | Core flow works; no network permission or required network request |
 | Thermal repeatability | One warmup then five measured runs; note thermal status | Report raw observations and median; do not claim cross-device equivalence |
@@ -40,4 +40,4 @@ Record Android build/API, app version, image name, lens, dimensions, MIME, sourc
 
 ## Manual device metadata
 
-Use the commands in `DEVICE_PROFILE.md`; redact `adb devices` serial output before sharing. Confirm app heap with `dumpsys meminfo`; physical RAM in Settings is not the app heap budget.
+Use the commands in `DEVICE_PROFILE.md`; redact `adb devices` serial output before sharing. For phase-0 memory/bounds diagnostics, capture `adb logcat -s ADAMANT-Lab:I`; it logs heap classes, allowed pixels, and image dimensions, not photo contents or private URIs. Confirm app heap with `dumpsys meminfo`; physical RAM in Settings is not the app heap budget.

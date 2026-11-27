@@ -6,7 +6,9 @@ This file applies to all repository work. If instructions conflict, follow: plat
 
 - ADAMANT-1 is an experimental C++ RGBA predictor + Huffman prototype. CHIMERA-1/CHM1 is a separate research prototype with a quantized/routed base and optional exact XOR residual. Neither is a standards-compliant general-purpose format, and neither has a demonstrated advantage over established codecs.
 - The current Android app's Exact check is equality of normalized RGBA pixel bytes. It is not byte-for-byte equality of the original encoded PNG/JPEG file. Keep `source_file_sha256` separate from pre/post RGBA hashes.
-- CameraX captures JPEG in the MVP. It is already camera-processed/lossy, not sensor RAW. Do not say RAW/DNG is supported until verified through runtime capability checks on real hardware.
+- CameraX captures JPEG in the MVP. It is already camera-processed/lossy, not sensor RAW. Persist the original to MediaStore before any decode/analysis; later failures must not discard it. A reduced analysis copy must require an explicit user action and be marked lossy in UI/CSV. Do not say RAW/DNG is supported until verified through runtime capability checks on real hardware.
+- Moto G85 5G is the target test device, but heap size, output sizes, high-resolution streams, physical cameras, and extensions must be read from the device at runtime. User-supplied hardware specs are not proof of CameraX capabilities.
+- `android:largeHeap` is only a temporary phase-0 diagnostic aid, not a replacement for streaming/tiled processing. Do not claim 12.5 MP or 50 MP safety before memory-bounded implementation and physical-device tests.
 - The minimal CHM1 tile-router + quantized-base + optional residual experiment is implemented; diffusion, INR, semantic/machine channels, JND model, NPU/GPU backends, and progressive layers remain proposals. Never label a paper's claimed result as an ADAMANT/CHIMERA result.
 - Never invent test outcomes, benchmark numbers, scientific citations, licenses, device features, or compression percentages. Say **не проверено** for anything not supported by a test log, CSV, artifact, source code, or authoritative source.
 - A perceptual/semantic/generative reconstruction is lossy unless a formally verified lossless path reconstructs every specified input byte/sample.
@@ -27,6 +29,7 @@ This file applies to all repository work. If instructions conflict, follow: plat
 - Keep the on-device deterministic CPU path available. Optional GPU/NPU/model backends must be capability-tested and have a disclosed fallback; never assume a particular phone supports them.
 - For format changes, update `docs/FORMAT.md`, `docs/SPEC.md`, compatibility fixtures, corruption tests, and versioning decision before claiming compatibility.
 - For lossy changes, include rate-distortion results against fixed inputs, parameter settings, Android/device/build details, repeated timing runs, and quality measures. Include failures/regressions, not just wins.
+- Work one requested phase at a time; do not start later roadmap phases until requested. After each phase update `CHANGELOG.md` and distinguish CI/host checks from device checks (mark untested device behavior explicitly).
 - Add tests to each PR. Add parser fuzz/property tests for new binary features. Never compare Debug timings against Release timings.
 
 ## Required pre-finish checks

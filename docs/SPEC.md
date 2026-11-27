@@ -7,7 +7,7 @@ A local Android image-compression experiment app. Kotlin/Compose owns workflow a
 ## Data flow and identity
 
 - Keep original encoded bytes for byte count and `source_file_sha256`.
-- Bounds-check dimensions before allocating a bitmap; apply EXIF orientation for display/pixel processing when present.
+- CameraX JPEG is copied unchanged to MediaStore `Pictures/ADAMANT` before any bitmap decode or codec analysis. Bounds-check dimensions before full bitmap allocation; if full analysis is rejected or runs out of memory, keep the saved original and offer a user-triggered `inSampleSize` analysis copy. The copy is explicitly lossy and Exact applies only to its normalized RGBA pixels. Apply EXIF orientation for display/pixel processing when present.
 - Convert the normalized bitmap to RGBA8888 row-by-row.
 - ADAMANT Exact encodes those pixel bytes, decodes them, computes `source_rgba_sha256` and `decoded_rgba_sha256`, and compares exact bytes.
 - CHIMERA Exact encodes a quantized/routed base plus an XOR residual and verifies recovered canonical RGBA. CHIMERA Bounded-error omits the residual and checks the decoded max absolute RGBA-component error against its declared threshold. Bounded-error is lossy; it is not a perceptual/JND guarantee.
@@ -25,7 +25,7 @@ A local Android image-compression experiment app. Kotlin/Compose owns workflow a
 
 ## App privacy and permissions
 
-- Camera permission is runtime-requested only when using the camera.
+- Camera permission is runtime-requested only when using the camera. `WRITE_EXTERNAL_STORAGE` is requested only on Android 9/API 28 and lower for MediaStore gallery saves.
 - `READ_MEDIA_IMAGES` is declared but not requested by the current Photo Picker import flow.
 - No `INTERNET` permission, upload client, ad SDK, or analytics SDK.
 - Logs contain no IMEI, serial, MAC, IP, or SIM identifiers.

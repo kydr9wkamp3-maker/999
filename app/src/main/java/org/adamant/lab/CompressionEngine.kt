@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.SystemClock
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.security.MessageDigest
 import kotlin.math.ln
 import kotlin.math.max
@@ -20,7 +21,16 @@ enum class Mode(val display: String) {
     EXACT("Exact"), BOUNDED_ERROR("Bounded-error (lossy, max 6/255)"), VISUAL_LOSSLESS("Visual-lossless"), PROGRESSIVE("Progressive")
 }
 
-data class ImageInput(val bitmap: Bitmap, val bytes: ByteArray, val name: String, val mime: String, val notes: String = "")
+data class ImageInput(
+    val bitmap: Bitmap,
+    val bytes: ByteArray,
+    val name: String,
+    val mime: String,
+    val notes: String = "",
+    val sourceByteSize: Long = bytes.size.toLong(),
+    val sourceFileSha256: String? = null,
+    val downsampledForAnalysis: Boolean = false
+)
 data class Quality(val psnr: Double?, val ssim: Double?, val maxSampleError: Int?)
 data class CompressionResult(
     val codec: Codec, val mode: Mode, val encoded: ByteArray, val decoded: Bitmap,
@@ -67,6 +77,17 @@ object ImageBytes {
 
     fun sha256(data: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(data).joinToString("") { "%02x".format(it) }
+
+    fun sha256(input: InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 }
 
 object QualityMetrics {
@@ -177,7 +198,7 @@ object CompressionEngine {
             else -> ""
         }
         return CompressionResult(
-            codec, mode, encoded, decoded, encodeMs, decodeMs, quality, ImageBytes.sha256(input.bytes), sourceSha,
+            codec, mode, encoded, decoded, encodeMs, decodeMs, quality, input.sourceFileSha256 ?: ImageBytes.sha256(input.bytes), sourceSha,
             ImageBytes.sha256(decodedRgba), exact, note
         )
     }

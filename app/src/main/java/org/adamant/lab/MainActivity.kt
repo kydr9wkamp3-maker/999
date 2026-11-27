@@ -1,15 +1,21 @@
 package org.adamant.lab
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.media.MediaScannerConnection
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.OpenableColumns
-import android.util.Size
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -19,9 +25,6 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -87,10 +90,27 @@ private enum class Screen(val title: String, val icon: String) {
     CAMERA("Камера", "📷"), GALLERY("Галерея", "▧"), COMPRESS("Сжатие", "⇄"), RESULT("Результат", "✓"), LOG("Журнал", "≡")
 }
 private data class CompressionAttempt(val codec: Codec, val record: ExperimentRecord?, val result: CompressionResult?, val error: String?)
+private data class PendingCameraCapture(
+    val uri: Uri,
+    val name: String,
+    val width: Int,
+    val height: Int,
+    val byteSize: Long,
+    val allowedPixels: Long
+)
+
+private const val LOG_TAG = "ADAMANT-Lab"
+
+private fun logMemoryProfile(context: android.content.Context) {
+    val runtimeMax = Runtime.getRuntime().maxMemory()
+    val activityManager = context.getSystemService(ActivityManager::class.java)
+    Log.i(LOG_TAG, "Memory profile: Runtime.maxMemory=$runtimeMax bytes, memoryClass=${activityManager.memoryClass} MiB, largeMemoryClass=${activityManager.largeMemoryClass} MiB, allowedPixels=${MvpMemoryBudget.allowedPixels(runtimeMax)}")
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logMemoryProfile(this)
         setContent { AdamantApp() }
     }
 }
@@ -106,6 +126,8 @@ private fun AdamantApp() {
     var selectedCodec by remember { mutableStateOf(Codec.ADAMANT) }
     var selectedMode by remember { mutableStateOf(Mode.EXACT) }
     var busy by remember { mutableStateOf(false) }
+    var reducingCapture by remember { mutableStateOf(false) }
+    var pendingCapture by remember { mutableStateOf<PendingCameraCapture?>(null) }
     var status by remember { mutableStateOf("") }
     var records by remember { mutableStateOf(ExperimentLog.read(context)) }
     var pendingCsv by remember { mutableStateOf("") }
@@ -145,7 +167,31 @@ private fun AdamantApp() {
                 if (status.isNotBlank()) Text(status, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp))
                 when (screen) {
                     Screen.CAMERA -> CameraScreen(
-                        onCaptured = { input -> selected = input; result = null; status = "Фото ${input.bitmap.width}×${input.bitmap.height}: JPEG (уже сжатый камерой)"; screen = Screen.GALLERY },
+                        pendingCapture = pendingCapture,
+                        reducingCapture = reducingCapture,
+                        onAnalyzeReduced = {
+                            val capture = pendingCapture
+                            if (capture != null && !reducingCapture) {
+                                reducingCapture = true
+                                status = "Создаю уменьшенную копию; оригинал остаётся в галерее…"
+                                scope.launch {
+                                    val reduced = runCatching { withContext(Dispatchers.IO) { readReducedCapture(context, capture) } }
+                                    reduced.onSuccess { input ->
+                                        selected = input; result = null; pendingCapture = null
+                                        status = "Уменьшенная копия ${input.bitmap.width}×${input.bitmap.height} готова. Источник явно помечен как уменьшенный и с потерями (lossy); Exact относится только к этой копии."
+                                        screen = Screen.GALLERY
+                                    }.onFailure { error ->
+                                        status = "Снимок сохранён, но уменьшенную копию создать не удалось: ${error.message ?: error.javaClass.simpleName}"
+                                    }
+                                    reducingCapture = false
+                                }
+                            }
+                        },
+                        onCaptured = { input -> pendingCapture = null; selected = input; result = null; status = "Фото ${input.bitmap.width}×${input.bitmap.height}: оригинал сохранён в Pictures/ADAMANT (JPEG)"; screen = Screen.GALLERY },
+                        onAnalysisUnavailable = { capture, reason ->
+                            pendingCapture = capture
+                            status = "Снимок сохранён в Pictures/ADAMANT, анализ недоступен для этого размера: ${capture.width}×${capture.height} (${capture.width.toLong() * capture.height} px; лимит ${capture.allowedPixels} px). $reason Нажмите «Проанализировать уменьшенную копию» ниже."
+                        },
                         onError = { status = it }
                     )
                     Screen.GALLERY -> GalleryScreen(selected, onPick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
@@ -164,6 +210,8 @@ private fun AdamantApp() {
                                             val mode = if (compareAll) Mode.EXACT else selectedMode
                                             val item = CompressionEngine.compress(source, codec, mode)
                                             CompressionAttempt(codec, ExperimentRecord.from(source, mode, item), item, null)
+                                        } catch (e: OutOfMemoryError) {
+                                            CompressionAttempt(codec, null, null, "Недостаточно памяти для этого кодека; оригинальный снимок сохранён в галерее.")
                                         } catch (e: Exception) { CompressionAttempt(codec, null, null, e.message ?: e.javaClass.simpleName) }
                                     }
                                 }
@@ -199,7 +247,8 @@ private fun GalleryScreen(input: ImageInput?, onPick: () -> Unit) {
         Button(onClick = onPick) { Text("Выбрать из галереи") }
         if (input != null) {
             ImagePreview(input.bitmap, Modifier.fillMaxWidth().height(300.dp))
-            InfoCard("${input.name}\n${input.bitmap.width} × ${input.bitmap.height}\n${input.mime} · ${formatBytes(input.bytes.size.toLong())}")
+            if (input.notes.isNotBlank()) InfoCard(input.notes)
+            InfoCard("${input.name}\n${input.bitmap.width} × ${input.bitmap.height}\n${input.mime} · ${formatBytes(input.sourceByteSize)}")
         } else Text("Выберите PNG или другое изображение через системный picker. Доступ к библиотеке целиком не запрашивается.")
     }
 }
@@ -212,7 +261,8 @@ private fun CompressScreen(input: ImageInput?, codec: Codec, mode: Mode, busy: B
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Параметры эксперимента", style = MaterialTheme.typography.headlineSmall)
         if (input == null) InfoCard("Сначала сделайте снимок или выберите изображение на экране «Галерея».")
-        else InfoCard("${input.name} · ${input.bitmap.width} × ${input.bitmap.height} · ${formatBytes(input.bytes.size.toLong())}")
+        else InfoCard("${input.name} · ${input.bitmap.width} × ${input.bitmap.height} · ${formatBytes(input.sourceByteSize)}")
+        input?.takeIf { it.notes.isNotBlank() }?.let { InfoCard(it.notes) }
         Text("Режим")
         Box {
             OutlinedButton(onClick = { modeOpen = true }) { Text(mode.display) }
@@ -260,12 +310,17 @@ private fun ResultScreen(input: ImageInput?, result: CompressionResult?) {
                 Modifier.weight(1f).height(170.dp))
         }
         TextButton(onClick = { showDiff = !showDiff }) { Text(if (showDiff) "Показать результат" else "Показать разницу") }
-        val ratio = if (result.encoded.isEmpty()) "—" else String.format(Locale.US, "%.3f×", input.bytes.size.toDouble() / result.encoded.size)
-        InfoCard("Кодек: ${result.codec.display}\nРежим: ${result.mode.display}\nИсходный файл: ${formatBytes(input.bytes.size.toLong())}\nКонтейнер/выход: ${formatBytes(result.encoded.size.toLong())}\nОтношение размеров: $ratio\nКодирование: ${fmt(result.encodeMs)} мс · декодирование: ${fmt(result.decodeMs)} мс\nPSNR RGBA: ${result.quality.psnr?.let { fmt(it) + " dB" } ?: if (result.bitExact) "∞ (идентичные пиксели)" else "не рассчитан"}\nSSIM глобальный: ${result.quality.ssim?.let { fmt(it) } ?: "не рассчитан"}\nМаксимальная ошибка сэмпла: ${result.quality.maxSampleError?.toString() ?: "не рассчитана"} / 255\nПиковая память: не измерена в MVP")
+        val ratio = when {
+            input.downsampledForAnalysis -> "не сопоставимо: уменьшенная копия"
+            result.encoded.isEmpty() -> "—"
+            else -> String.format(Locale.US, "%.3f×", input.sourceByteSize.toDouble() / result.encoded.size)
+        }
+        InfoCard("Кодек: ${result.codec.display}\nРежим: ${result.mode.display}\nИсходный файл: ${formatBytes(input.sourceByteSize)}\nКонтейнер/выход: ${formatBytes(result.encoded.size.toLong())}\nОтношение размеров: $ratio\nКодирование: ${fmt(result.encodeMs)} мс · декодирование: ${fmt(result.decodeMs)} мс\nPSNR RGBA: ${result.quality.psnr?.let { fmt(it) + " dB" } ?: if (result.bitExact) "∞ (идентичные пиксели)" else "не рассчитан"}\nSSIM глобальный: ${result.quality.ssim?.let { fmt(it) } ?: "не рассчитан"}\nМаксимальная ошибка сэмпла: ${result.quality.maxSampleError?.toString() ?: "не рассчитана"} / 255\nПиковая память: не измерена в MVP")
+        if (input.notes.isNotBlank()) InfoCard(input.notes)
         InfoCard("SHA-256 исходного файла: ${result.sourceFileSha}\nSHA-256 RGBA до кодирования: ${result.sourceSha}\nSHA-256 RGBA после декодирования: ${result.decodedSha}\nСтатус пикселей: ${if (result.bitExact) "бит-в-бит совпадают (RGBA)" else "есть отличия"}")
         if (result.note.isNotBlank()) Text(result.note, style = MaterialTheme.typography.bodySmall)
         Button(onClick = {
-            val share = "ADAMANT Lab report\nCodec: ${result.codec.display}\nMode: ${result.mode.display}\nSize: ${input.bytes.size} -> ${result.encoded.size} bytes\nEncode/decode: ${fmt(result.encodeMs)}/${fmt(result.decodeMs)} ms\nRGBA SHA-256 match: ${result.bitExact}\n${result.note}"
+            val share = "ADAMANT Lab report\nCodec: ${result.codec.display}\nMode: ${result.mode.display}\nSize: ${input.sourceByteSize} -> ${result.encoded.size} bytes\nEncode/decode: ${fmt(result.encodeMs)}/${fmt(result.decodeMs)} ms\nRGBA SHA-256 match: ${result.bitExact}\n${result.note}"
             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, share)
             context.startActivity(android.content.Intent.createChooser(intent, "Поделиться отчётом"))
         }) { Text("Поделиться отчётом") }
@@ -299,14 +354,27 @@ private fun LogScreen(records: List<ExperimentRecord>, onExport: () -> Unit, onC
 }
 
 @Composable
-private fun CameraScreen(onCaptured: (ImageInput) -> Unit, onError: (String) -> Unit) {
+private fun CameraScreen(
+    pendingCapture: PendingCameraCapture?,
+    reducingCapture: Boolean,
+    onAnalyzeReduced: () -> Unit,
+    onCaptured: (ImageInput) -> Unit,
+    onAnalysisUnavailable: (PendingCameraCapture, String) -> Unit,
+    onError: (String) -> Unit
+) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
+    var hasPermission by remember {
+        mutableStateOf(requiredCameraPermissions(context).all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        })
+    }
     var lensFront by remember { mutableStateOf(false) }
     var capture by remember { mutableStateOf<ImageCapture?>(null) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val requiredPermissions = remember { requiredCameraPermissions(context) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        hasPermission = requiredPermissions.all { results[it] == true || ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Камера", style = MaterialTheme.typography.headlineSmall)
         if (hasPermission) {
             CameraPreview(lensFront, onCaptureReady = { capture = it })
@@ -317,39 +385,123 @@ private fun CameraScreen(onCaptured: (ImageInput) -> Unit, onError: (String) -> 
                     if (imageCapture == null) { onError("Камера ещё запускается"); return@Button }
                     val file = File(context.cacheDir, "adamant-camera-${System.currentTimeMillis()}.jpg")
                     val options = ImageCapture.OutputFileOptions.Builder(file).build()
-                    imageCapture.takePicture(options, ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
+                    val callbackExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    imageCapture.takePicture(options, callbackExecutor, object : ImageCapture.OnImageSavedCallback {
                         override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                            if (!scope.isActive) { file.delete(); return }
-                            scope.launch(Dispatchers.IO) {
-                                val captured = runCatching {
-                                    require(file.length() <= currentInputLimitBytes()) { "Снимок превышает динамический лимит входного файла MVP" }
+                            var savedToGallery = false
+                            try {
+                                // Persist the camera-produced JPEG before decoding or running any analysis.
+                                val galleryUri = saveCameraJpegToGallery(context, file)
+                                savedToGallery = true
+                                val bounds = readImageBounds(file)
+                                val maxPixels = MvpMemoryBudget.allowedPixels(Runtime.getRuntime().maxMemory())
+                                val byteSize = file.length()
+                                val pending = PendingCameraCapture(galleryUri, file.name, bounds.width, bounds.height, byteSize, maxPixels)
+                                val pixels = bounds.width.toLong() * bounds.height.toLong()
+                                Log.i(LOG_TAG, "Captured JPEG bounds=${bounds.width}x${bounds.height}, pixels=$pixels, bytes=$byteSize, allowedPixels=$maxPixels, maxMemory=${Runtime.getRuntime().maxMemory()}")
+                                if (pixels > maxPixels || byteSize > currentInputLimitBytes()) {
+                                    file.delete()
+                                    ContextCompat.getMainExecutor(context).execute {
+                                        onAnalysisUnavailable(pending, "Причина: размер кадра или JPEG превышает безопасный предел полного анализа.")
+                                    }
+                                    return
+                                }
+                                try {
                                     val bytes = file.readBytes()
-                                    val decoded = decodeImageSafely(bytes)
-                                    val target = cameraCaptureTargetResolution()
+                                    val (bitmap, orientationApplied) = decodeImageSafely(bytes)
                                     val notes = buildList {
-                                        add("CameraX requested up to ${target.width}×${target.height} for MVP memory safety; actual capture is ${decoded.first.width}×${decoded.first.height}.")
-                                        add("Capture is JPEG already compressed by camera pipeline; not sensor RAW/DNG.")
-                                        if (decoded.second) add("EXIF orientation normalized for pixel processing.")
+                                        add("Оригинальный JPEG сохранён в Pictures/ADAMANT до анализа; CameraX JPEG уже сжат камерой и не является RAW/DNG.")
+                                        if (orientationApplied) add("EXIF orientation normalized for pixel processing.")
                                     }.joinToString(" ")
-                                    ImageInput(decoded.first, bytes, file.name, "image/jpeg", notes)
+                                    val input = ImageInput(
+                                        bitmap = bitmap, bytes = bytes, name = file.name, mime = "image/jpeg", notes = notes,
+                                        sourceByteSize = byteSize, sourceFileSha256 = ImageBytes.sha256(bytes)
+                                    )
+                                    file.delete()
+                                    ContextCompat.getMainExecutor(context).execute { onCaptured(input) }
+                                } catch (error: Throwable) {
+                                    file.delete()
+                                    val reason = if (error is OutOfMemoryError) "Не хватило памяти для полного анализа." else "Полный анализ не выполнен: ${error.message ?: error.javaClass.simpleName}."
+                                    ContextCompat.getMainExecutor(context).execute { onAnalysisUnavailable(pending, reason) }
                                 }
-                                file.delete()
-                                withContext(Dispatchers.Main) {
-                                    captured.onSuccess(onCaptured).onFailure { onError("Ошибка обработки снимка: ${it.message}") }
+                            } catch (error: Throwable) {
+                                // Keep the app-private JPEG if MediaStore itself is unavailable; analysis never deletes it.
+                                ContextCompat.getMainExecutor(context).execute {
+                                    val prefix = if (savedToGallery) "Оригинал сохранён в Pictures/ADAMANT, но не удалось подготовить анализ" else "Снимок сделан, но не удалось сохранить оригинал в Pictures/ADAMANT"
+                                    onError("$prefix: ${error.message ?: error.javaClass.simpleName}. Временный JPEG оставлен в кэше приложения.")
                                 }
+                            } finally {
+                                callbackExecutor.shutdown()
                             }
                         }
-                        override fun onError(exception: ImageCaptureException) { onError("Ошибка камеры: ${exception.message}") }
+
+                        override fun onError(exception: ImageCaptureException) {
+                            file.delete()
+                            ContextCompat.getMainExecutor(context).execute { onError("Ошибка камеры: ${exception.message}") }
+                            callbackExecutor.shutdown()
+                        }
                     })
                 }) { Text("Сделать фото") }
             }
-            val target = cameraCaptureTargetResolution()
-            Text("Камера запросит 4:3 кадр до ${target.width}×${target.height} по безопасному бюджету памяти; фактический размер покажем после съёмки. Снимок — JPEG, уже сжатый камерой, не RAW/DNG.", style = MaterialTheme.typography.bodySmall)
+            Text("Сначала сохраняется оригинальный JPEG в Pictures/ADAMANT. Если полный анализ не помещается в безопасный бюджет, снимок останется в галерее и можно будет отдельно запустить анализ уменьшенной копии. RAW/DNG в MVP не поддерживается.", style = MaterialTheme.typography.bodySmall)
+            if (pendingCapture != null) {
+                InfoCard("Снимок ${pendingCapture.width}×${pendingCapture.height} сохранён в галерее. Уменьшенная копия будет явно помечена как версия с потерями (lossy); Exact проверит только её пиксели, не исходный кадр.")
+                Button(onClick = onAnalyzeReduced, enabled = !reducingCapture) {
+                    Text(if (reducingCapture) "Подготовка копии…" else "Проанализировать уменьшенную копию")
+                }
+            }
         } else {
-            InfoCard("Для предпросмотра и съёмки требуется разрешение камеры.")
-            Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Разрешить камеру") }
+            InfoCard("Для камеры требуется разрешение камеры${if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) " и сохранения в галерею" else ""}.")
+            Button(onClick = { permissionLauncher.launch(requiredPermissions) }) { Text("Разрешить") }
         }
     }
+}
+
+private fun requiredCameraPermissions(context: android.content.Context): Array<String> = buildList {
+    add(Manifest.permission.CAMERA)
+    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+}.toTypedArray()
+
+private fun saveCameraJpegToGallery(context: android.content.Context, source: File): Uri {
+    val resolver = context.contentResolver
+    val name = source.name
+    val values = ContentValues().apply {
+        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ADAMANT")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        } else {
+            val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "ADAMANT")
+            require(directory.exists() || directory.mkdirs()) { "Не удалось создать Pictures/ADAMANT" }
+            put(MediaStore.Images.Media.DATA, File(directory, name).absolutePath)
+            put(MediaStore.Images.Media.TITLE, name.substringBeforeLast('.'))
+        }
+    }
+    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        ?: error("MediaStore не создал запись снимка")
+    try {
+        val output = resolver.openOutputStream(uri, "w") ?: error("Не удалось открыть MediaStore для записи")
+        source.inputStream().use { input -> output.use { input.copyTo(it) } }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+        } else {
+            MediaScannerConnection.scanFile(context, arrayOf(values.getAsString(MediaStore.Images.Media.DATA)), arrayOf("image/jpeg"), null)
+        }
+        return uri
+    } catch (error: Throwable) {
+        resolver.delete(uri, null, null)
+        throw error
+    }
+}
+
+private data class ImageBounds(val width: Int, val height: Int)
+
+private fun readImageBounds(file: File): ImageBounds {
+    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, options)
+    require(options.outWidth > 0 && options.outHeight > 0) { "CameraX output is not a recognized image" }
+    return ImageBounds(options.outWidth, options.outHeight)
 }
 
 @Composable
@@ -366,13 +518,7 @@ private fun CameraPreview(front: Boolean, onCaptureReady: (ImageCapture?) -> Uni
                 runCatching {
                     provider = future.get()
                     val preview = Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
-                    val target = cameraCaptureTargetResolution()
-                    val resolutionSelector = ResolutionSelector.Builder()
-                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
-                        .setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER))
-                        .build()
                     val photo = ImageCapture.Builder()
-                        .setResolutionSelector(resolutionSelector)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                         .build()
                     val cameraSelector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
@@ -399,17 +545,10 @@ private fun InfoCard(text: String) {
 }
 
 private const val MAX_INPUT_BYTES = 128L * 1024L * 1024L
-private const val MAX_MVP_PIXELS = 12_000_000L
 
 private fun currentInputLimitBytes(): Long = minOf(MAX_INPUT_BYTES, Runtime.getRuntime().maxMemory() / 8L)
 
-private fun currentInputLimitPixels(): Long = minOf(MAX_MVP_PIXELS, Runtime.getRuntime().maxMemory() / 40L)
-
-/** CameraX must choose a supported 4:3 capture no larger than the app's current pixel budget. */
-private fun cameraCaptureTargetResolution(): Size {
-    val targetWidth = kotlin.math.sqrt(currentInputLimitPixels() * (4.0 / 3.0)).toInt().coerceAtLeast(1)
-    return Size(targetWidth, targetWidth * 3 / 4)
-}
+private fun currentInputLimitPixels(): Long = MvpMemoryBudget.allowedPixels(Runtime.getRuntime().maxMemory())
 
 private fun readImage(resolver: ContentResolver, uri: Uri): ImageInput {
     val bytes = resolver.openInputStream(uri)?.use { readBounded(it, currentInputLimitBytes()) } ?: error("Cannot open image")
@@ -436,21 +575,66 @@ private fun readBounded(input: InputStream, maxBytes: Long): ByteArray {
     return output.toByteArray()
 }
 
-/** Bounds-checks dimensions before allocating a Bitmap; exact mode never silently downsamples. */
+/** Bounds-checks dimensions before allocating a Bitmap; normal Exact input is never silently downsampled. */
 private fun decodeImageSafely(bytes: ByteArray): Pair<Bitmap, Boolean> {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Формат изображения не распознан" }
     val pixels = bounds.outWidth.toLong() * bounds.outHeight.toLong()
     val allowedPixels = currentInputLimitPixels()
+    Log.i(LOG_TAG, "Image bounds=${bounds.outWidth}x${bounds.outHeight}, pixels=$pixels, allowedPixels=$allowedPixels, maxMemory=${Runtime.getRuntime().maxMemory()}")
     require(pixels <= allowedPixels) {
-        "Изображение ${bounds.outWidth}×${bounds.outHeight} превышает безопасный MVP-предел ${allowedPixels} пикселей; автоматическое уменьшение отключено для Exact"
+        "Изображение ${bounds.outWidth}×${bounds.outHeight} ($pixels пикс.) превышает текущий лимит $allowedPixels пикс. Оригинал не изменён; для снимка доступен отдельный анализ уменьшенной копии."
     }
     val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         ?: error("Не удалось декодировать изображение")
     val orientation = runCatching {
         ExifInterface(bytes.inputStream()).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
     }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+    return applyExifOrientation(decoded, orientation)
+}
+
+/** Explicit camera fallback: decode from the saved original URI with a bounded BitmapFactory sample size. */
+private fun readReducedCapture(context: android.content.Context, capture: PendingCameraCapture): ImageInput {
+    val resolver = context.contentResolver
+    val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    val boundsStream = resolver.openInputStream(capture.uri) ?: error("Не удалось открыть сохранённый оригинал")
+    boundsStream.use { BitmapFactory.decodeStream(it, null, boundsOptions) }
+    require(boundsOptions.outWidth > 0 && boundsOptions.outHeight > 0) { "Формат сохранённого снимка не распознан" }
+    val allowedPixels = MvpMemoryBudget.allowedPixels(Runtime.getRuntime().maxMemory())
+    val sample = maxOf(2, MvpMemoryBudget.inSampleSize(boundsOptions.outWidth, boundsOptions.outHeight, allowedPixels))
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    val sampled = resolver.openInputStream(capture.uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+        ?: error("Не удалось декодировать уменьшенную копию")
+    val orientation = resolver.openInputStream(capture.uri)?.use {
+        ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    } ?: ExifInterface.ORIENTATION_NORMAL
+    val (bitmap, orientationApplied) = applyExifOrientation(sampled, orientation)
+    val sourceSha = resolver.openInputStream(capture.uri)?.use { ImageBytes.sha256(it) }
+        ?: error("Не удалось проверить SHA-256 исходного JPEG")
+    val actualPixels = bitmap.width.toLong() * bitmap.height
+    require(actualPixels <= allowedPixels) {
+        "Уменьшенная копия ${bitmap.width}×${bitmap.height} всё ещё выше лимита $allowedPixels пикс."
+    }
+    Log.i(LOG_TAG, "Reduced camera analysis: source=${capture.width}x${capture.height}, sample=$sample, output=${bitmap.width}x${bitmap.height}, allowedPixels=$allowedPixels")
+    val notes = buildList {
+        add("УМЕНЬШЕННАЯ КОПИЯ С ПОТЕРЯМИ (LOSSY): оригинальный JPEG ${capture.width}×${capture.height} остаётся в Pictures/ADAMANT; копия для анализа создана BitmapFactory inSampleSize=$sample.")
+        add("Exact/bitExact checks apply only to this reduced normalized RGBA copy, not to the original camera frame.")
+        if (orientationApplied) add("EXIF orientation normalized for pixel processing.")
+    }.joinToString(" ")
+    return ImageInput(
+        bitmap = bitmap,
+        bytes = ByteArray(0),
+        name = capture.name,
+        mime = "image/jpeg",
+        notes = notes,
+        sourceByteSize = capture.byteSize,
+        sourceFileSha256 = sourceSha,
+        downsampledForAnalysis = true
+    )
+}
+
+private fun applyExifOrientation(decoded: Bitmap, orientation: Int): Pair<Bitmap, Boolean> {
     val matrix = Matrix()
     when (orientation) {
         ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
@@ -461,8 +645,7 @@ private fun decodeImageSafely(bytes: ByteArray): Pair<Bitmap, Boolean> {
         ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.setRotate(-90f); matrix.postScale(-1f, 1f) }
         ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(270f)
     }
-    val hasOrientationTransform = orientation in 2..8
-    if (!hasOrientationTransform) return decoded to false
+    if (orientation !in 2..8) return decoded to false
     val oriented = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
     if (oriented !== decoded) decoded.recycle()
     return oriented to true
