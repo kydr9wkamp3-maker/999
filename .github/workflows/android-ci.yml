@@ -43,16 +43,10 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Compile Kotlin
-        run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
+        run: gradle compileDebugKotlin --no-daemon
 
       - name: Assemble debug APK
-        run: |
-          echo "=== Current directory ==="
-          pwd
-          echo "=== Project files ==="
-          ls -la
-          echo "=== Running assembleDebug ==="
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
+        run: gradle :app:assembleDebug --no-daemon --stacktrace --rerun-tasks
 
       - name: List build outputs
         run: |
