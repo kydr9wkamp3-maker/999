@@ -41,7 +41,10 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --no-daemon
+        run: |
+          pwd
+          ls -la
+          gradle assembleDebug --no-daemon --info 2>&1 | grep -A 20 -i "error\|failed\|exception" | head -50
 
       - name: Verify APK
         run: |
