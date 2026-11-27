@@ -61,7 +61,9 @@ jobs:
           ./tests/native/run.sh
 
       - name: Run unit tests and lint
-        run: ./gradlew testDebugUnitTest lintDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew testDebugUnitTest lintDebug --stacktrace 2>&1 | tee build/ci-gradle.log
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --stacktrace
@@ -80,6 +82,7 @@ jobs:
         with:
           name: android-reports-${{ github.run_id }}
           path: |
+            build/ci-gradle.log
             app/build/reports/tests/
             app/build/test-results/
             app/build/reports/lint-results-debug.html
