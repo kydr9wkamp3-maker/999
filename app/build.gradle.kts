@@ -58,12 +58,7 @@ dependencies {
     implementation(libs.compose.material3)
     debugImplementation(libs.compose.ui.tooling)
     
-    implementation(libs.camerax.core)
-    implementation(libs.camerax.camera2)
-    implementation(libs.camerax.lifecycle)
-    implementation(libs.camerax.view)
     
-    implementation(libs.accompanist.permissions)
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.junit.ext)
