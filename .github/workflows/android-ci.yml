@@ -46,7 +46,13 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --no-daemon --info
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          echo "=== Project files ==="
+          ls -la
+          echo "=== Running assembleDebug ==="
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
 
       - name: List build outputs
         run: |
