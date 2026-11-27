@@ -16,7 +16,14 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,20 +32,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -50,6 +60,7 @@ fun CameraScreen() {
     var hasCameraPermission by remember { mutableStateOf(false) }
     var permissionRequested by remember { mutableStateOf(false) }
     var lastSavedMessage by remember { mutableStateOf<String?>(null) }
+    var useFrontCamera by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -69,53 +80,22 @@ fun CameraScreen() {
     }
 
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    var useFrontCamera by remember { mutableStateOf(false) }
-
-    // ImageCapture instance — recreated when camera switches
-    val imageCapture = remember(useFrontCamera) {
+    val imageCapture = remember {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .build()
-    }
-
-    // PreviewView reference holder
-    var previewView by remember { mutableStateOf<PreviewView?>(null) }
-
-    // Bind camera when permission granted or camera selection changes
-    LaunchedEffect(hasCameraPermission, useFrontCamera) {
-        if (!hasCameraPermission) return@LaunchedEffect
-        val pv = previewView ?: return@LaunchedEffect
-
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        cameraProviderFuture.addListener({
-            try {
-                val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(pv.surfaceProvider)
-                }
-                val cameraSelector = if (useFrontCamera) {
-                    CameraSelector.DEFAULT_FRONT_CAMERA
-                } else {
-                    CameraSelector.DEFAULT_BACK_CAMERA
-                }
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner, cameraSelector, preview, imageCapture
-                )
-                Log.i("CameraScreen", "Camera bound: front=$useFrontCamera")
-            } catch (e: Exception) {
-                Log.e("CameraScreen", "Camera bind failed", e)
-            }
-        }, ContextCompat.getMainExecutor(context))
     }
 
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
-                    PreviewView(ctx).also { pv ->
-                        previewView = pv
+                    PreviewView(ctx).also { previewView ->
+                        bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture)
                     }
+                },
+                update = { previewView ->
+                    bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture)
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -127,7 +107,6 @@ fun CameraScreen() {
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
                     .size(48.dp)
-                    .semantics { contentDescription = "Switch camera" }
             ) {
                 Icon(
                     Icons.Default.Cameraswitch,
@@ -137,12 +116,11 @@ fun CameraScreen() {
                 )
             }
 
-            // Column for bottom controls
+            // Bottom controls
             Column(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Save confirmation
                 lastSavedMessage?.let { msg ->
                     Text(
                         msg,
@@ -157,8 +135,7 @@ fun CameraScreen() {
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(ChromecoreColors.CyanAccent)
-                        .semantics { contentDescription = "Take photo" },
+                        .background(ChromecoreColors.CyanAccent),
                     contentAlignment = Alignment.Center
                 ) {
                     IconButton(
@@ -209,11 +186,36 @@ fun CameraScreen() {
     }
 }
 
-/**
- * Takes a photo and saves it to the device gallery via MediaStore.
- * On Android 10+ (API 29+) no WRITE_EXTERNAL_STORAGE needed.
- * Photo appears in Pictures/ChromecoreX/ directory.
- */
+private fun bindCamera(
+    previewView: PreviewView,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+    useFrontCamera: Boolean,
+    imageCapture: ImageCapture
+) {
+    val context = previewView.context
+    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+    cameraProviderFuture.addListener({
+        try {
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
+            val cameraSelector = if (useFrontCamera) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner, cameraSelector, preview, imageCapture
+            )
+            Log.i("CameraScreen", "Camera bound: front=$useFrontCamera")
+        } catch (e: Exception) {
+            Log.e("CameraScreen", "Camera bind failed", e)
+        }
+    }, ContextCompat.getMainExecutor(context))
+}
+
 private fun takePhotoToGallery(
     context: Context,
     imageCapture: ImageCapture,
@@ -259,7 +261,6 @@ private fun takePhotoToGallery(
 
             override fun onError(exception: ImageCaptureException) {
                 Log.e("CameraScreen", "Photo capture failed: ${exception.imageCaptureError}", exception)
-                // Clean up the orphaned MediaStore entry on failure
                 try {
                     resolver.delete(imageUri, null, null)
                 } catch (e: Exception) {
