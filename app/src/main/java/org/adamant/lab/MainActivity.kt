@@ -368,7 +368,7 @@ private fun CameraPreview(front: Boolean, onCaptureReady: (ImageCapture?) -> Uni
                     val preview = Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
                     val target = cameraCaptureTargetResolution()
                     val resolutionSelector = ResolutionSelector.Builder()
-                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO)
+                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                         .setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER))
                         .build()
                     val photo = ImageCapture.Builder()
