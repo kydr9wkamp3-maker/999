@@ -71,7 +71,7 @@ jobs:
           lint_status=${PIPESTATUS[0]}
           for report in build/ci-tests.log build/ci-lint.log; do
             if grep -q '^FAILURE: Build failed' "$report"; then
-              summary=$(grep -E '^(FAILURE:|\* What went wrong:|Execution failed for task|.*> (Compilation error|Could not|No matching|Unresolved reference)|e: )' "$report" | tail -n 15 | tr '\n' ' ' | cut -c1-5000)
+              summary=$(tail -n 35 "$report" | tr '\n' ' ' | cut -c1-5000)
               echo "::error title=Gradle diagnostic::$summary"
             fi
           done
