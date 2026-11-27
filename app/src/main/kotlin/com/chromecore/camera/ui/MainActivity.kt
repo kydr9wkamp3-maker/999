@@ -9,14 +9,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.chromecore.camera.ui.screens.camera.CameraScreen
 import com.chromecore.camera.ui.theme.ChromecoreColors
+import com.chromecore.camera.ui.theme.ChromecoreTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            Surface(modifier = Modifier.fillMaxSize(), color = ChromecoreColors.ObsidianBlack) {
-                CameraScreen()
+            ChromecoreTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = ChromecoreColors.ObsidianBlack) {
+                    CameraScreen()
+                }
             }
         }
     }

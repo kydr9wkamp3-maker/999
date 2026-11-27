@@ -26,8 +26,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.chromecore.camera.ui.theme.ObsidianChrome
-import com.chromecore.camera.ui.theme.VaporAccent
+import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -48,7 +47,7 @@ fun CameraScreen() {
     val imageCapture = remember { ImageCapture.Builder().build() }
     var useFrontCamera by remember { mutableStateOf(false) }
     
-    Box(modifier = Modifier.fillMaxSize().background(ObsidianChrome)) {
+    Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
@@ -87,7 +86,7 @@ fun CameraScreen() {
             
             IconButton(
                 onClick = { capturePhoto(context, imageCapture, cameraExecutor) },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp).size(72.dp).clip(CircleShape).background(VaporAccent)
+                modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp).size(72.dp).clip(CircleShape).background(ChromecoreColors.CyanAccent)
             ) {
                 Icon(Icons.Default.Cameraswitch, "Capture", tint = Color.White, modifier = Modifier.size(40.dp))
             }
