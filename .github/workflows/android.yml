@@ -31,8 +31,14 @@ jobs:
       - name: Preflight
         run: bash scripts/preflight.sh
 
-      - name: Lint + unit tests + assemble
-        run: ./gradlew lintDebug testDebugUnitTest assembleDebug --stacktrace
+      - name: Lint
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Verify APK exists
         run: |
