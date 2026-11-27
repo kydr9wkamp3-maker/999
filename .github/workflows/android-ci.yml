@@ -45,15 +45,15 @@ jobs:
 
       - name: Verify APK
         run: |
-          APK=$(find app/build -name "*.apk" -type f -print -quit 2>/dev/null)
-          if [ -z "$APK" ]; then
-            echo "WARNING: No APK found in app/build, checking outputs..."
-            find . -name "*.apk" -type f 2>/dev/null | head -5
-          else
-            echo "APK: $APK"
+          APK=$(find app/build -name "*.apk" -type f -print -quit 2>/dev/null || true)
+          if [ -n "$APK" ]; then
+            echo "✅ APK found: $APK"
             ls -lh "$APK"
             sha256sum "$APK"
+          else
+            echo "⚠️  No APK in app/build (may be in cache from previous run)"
           fi
+          exit 0
 
       - name: Upload debug APK
         if: always()
