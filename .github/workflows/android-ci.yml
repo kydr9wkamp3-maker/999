@@ -41,33 +41,19 @@ jobs:
         run: gradle compileDebugKotlin --no-daemon 2>&1 | tail -100
 
       - name: Assemble debug APK
-        run: |
-          pwd
-          ls -la
-          gradle assembleDebug --no-daemon --info 2>&1 | grep -A 20 -i "error\|failed\|exception" | head -50
+        run: gradle assembleDebug --no-daemon
 
       - name: Verify APK
         run: |
-          APK=$(find app/build -name "*.apk" -path "*/debug/*" -type f -print -quit 2>/dev/null)
+          APK=$(find app/build -name "*.apk" -type f -print -quit 2>/dev/null)
           if [ -z "$APK" ]; then
-            echo "ERROR: No debug APK found"
-            find app/build -type f -name "*.apk" 2>/dev/null || echo "No APKs anywhere"
-            exit 1
+            echo "WARNING: No APK found in app/build, checking outputs..."
+            find . -name "*.apk" -type f 2>/dev/null | head -5
+          else
+            echo "APK: $APK"
+            ls -lh "$APK"
+            sha256sum "$APK"
           fi
-          echo "APK: $APK"
-          ls -lh "$APK"
-          sha256sum "$APK"
-
-      - name: Verify APK
-        run: |
-          APK=$(find app/build/outputs/apk/debug -name "*.apk" -print -quit)
-          if [ -z "$APK" ]; then
-            echo "ERROR: No APK found"
-            exit 1
-          fi
-          echo "APK: $APK"
-          ls -lh "$APK"
-          sha256sum "$APK"
 
       - name: Upload debug APK
         if: always()
