@@ -1,0 +1,54 @@
+name: CHROMECORE X — Android CI/CD
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Preflight
+        run: bash scripts/preflight.sh
+
+      - name: Lint + unit tests + assemble
+        run: ./gradlew lintDebug testDebugUnitTest assembleDebug --stacktrace
+
+      - name: Verify APK exists
+        run: |
+          APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          test -n "$APK" || { echo "APK not found"; exit 1; }
+          ls -lh "$APK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chromecore-x-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            **/build/reports/**
+            **/build/outputs/logs/**
