@@ -32,24 +32,28 @@ jobs:
         run: bash scripts/preflight.sh
 
       - name: Compile Kotlin
-        run: ./gradlew compileDebugKotlin --stacktrace 2>&1 | tail -80
+        run: ./gradlew compileDebugKotlin --stacktrace
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace 2>&1 | tail -80
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace 2>&1 | tail -80
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Verify APK exists
+      - name: Verify APK and list outputs
         run: |
-          APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          echo "=== All APKs ==="
+          find . -name '*.apk' -type f 2>/dev/null
+          echo "=== app/build/outputs ==="
+          find app/build/outputs -type f 2>/dev/null || echo "No outputs dir"
+          APK=$(find app/build/outputs -name '*.apk' -type f | head -1)
           test -n "$APK" || { echo "APK not found"; exit 1; }
           ls -lh "$APK"
 
       - uses: actions/upload-artifact@v4
         with:
           name: chromecore-x-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/**/*.apk
           if-no-files-found: error
 
       - name: Upload reports on failure
