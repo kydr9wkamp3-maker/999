@@ -12,6 +12,14 @@ class QualityMetricsTest {
         assertEquals(1.0, QualityMetrics.globalSsim(pixels, pixels.copyOf()), 1e-12)
     }
 
+    @Test fun globalSsimChangesForDifferentImages() {
+        val original = byteArrayOf(0, 0, 0, -1, -1, -1, -1, -1)
+        val changed = byteArrayOf(0, 0, 0, -1, 100, 100, 100, -1)
+        val score = QualityMetrics.globalSsim(original, changed)
+        assertTrue(score < 1.0)
+        assertTrue(score >= 0.0)
+    }
+
     @Test fun maximumSampleErrorIsMeasuredAcrossUnsignedRgbaBytes() {
         assertEquals(8, QualityMetrics.maxSampleError(byteArrayOf(0, 20, -1, 0), byteArrayOf(8, 12, -1, 0)))
     }

@@ -88,17 +88,18 @@ object QualityMetrics {
         require(a.size == b.size && a.isNotEmpty() && a.size % 4 == 0)
         val n = a.size / 4
         var meanA = 0.0; var meanB = 0.0
-        val lumA = DoubleArray(n); val lumB = DoubleArray(n)
         for (i in 0 until n) {
             val p = i * 4
-            lumA[i] = .2126 * (a[p].toInt() and 255) + .7152 * (a[p + 1].toInt() and 255) + .0722 * (a[p + 2].toInt() and 255)
-            lumB[i] = .2126 * (b[p].toInt() and 255) + .7152 * (b[p + 1].toInt() and 255) + .0722 * (b[p + 2].toInt() and 255)
-            meanA += lumA[i]; meanB += lumB[i]
+            meanA += .2126 * (a[p].toInt() and 255) + .7152 * (a[p + 1].toInt() and 255) + .0722 * (a[p + 2].toInt() and 255)
+            meanB += .2126 * (b[p].toInt() and 255) + .7152 * (b[p + 1].toInt() and 255) + .0722 * (b[p + 2].toInt() and 255)
         }
         meanA /= n; meanB /= n
         var va = 0.0; var vb = 0.0; var covariance = 0.0
         for (i in 0 until n) {
-            val da = lumA[i] - meanA; val db = lumB[i] - meanB
+            val p = i * 4
+            val lumA = .2126 * (a[p].toInt() and 255) + .7152 * (a[p + 1].toInt() and 255) + .0722 * (a[p + 2].toInt() and 255)
+            val lumB = .2126 * (b[p].toInt() and 255) + .7152 * (b[p + 1].toInt() and 255) + .0722 * (b[p + 2].toInt() and 255)
+            val da = lumA - meanA; val db = lumB - meanB
             va += da * da; vb += db * db; covariance += da * db
         }
         val divisor = max(1, n - 1).toDouble()

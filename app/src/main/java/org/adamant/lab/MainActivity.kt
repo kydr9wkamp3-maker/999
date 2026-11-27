@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.Size
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -18,6 +19,9 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -141,7 +145,7 @@ private fun AdamantApp() {
                 if (status.isNotBlank()) Text(status, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp))
                 when (screen) {
                     Screen.CAMERA -> CameraScreen(
-                        onCaptured = { input -> selected = input; result = null; status = "Фото получено: JPEG (уже сжатый камерой)"; screen = Screen.GALLERY },
+                        onCaptured = { input -> selected = input; result = null; status = "Фото ${input.bitmap.width}×${input.bitmap.height}: JPEG (уже сжатый камерой)"; screen = Screen.GALLERY },
                         onError = { status = it }
                     )
                     Screen.GALLERY -> GalleryScreen(selected, onPick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
@@ -321,8 +325,10 @@ private fun CameraScreen(onCaptured: (ImageInput) -> Unit, onError: (String) -> 
                                     require(file.length() <= currentInputLimitBytes()) { "Снимок превышает динамический лимит входного файла MVP" }
                                     val bytes = file.readBytes()
                                     val decoded = decodeImageSafely(bytes)
+                                    val target = cameraCaptureTargetResolution()
                                     val notes = buildList {
-                                        add("CameraX capture: JPEG already compressed by camera pipeline; not sensor RAW/DNG.")
+                                        add("CameraX requested up to ${target.width}×${target.height} for MVP memory safety; actual capture is ${decoded.first.width}×${decoded.first.height}.")
+                                        add("Capture is JPEG already compressed by camera pipeline; not sensor RAW/DNG.")
                                         if (decoded.second) add("EXIF orientation normalized for pixel processing.")
                                     }.joinToString(" ")
                                     ImageInput(decoded.first, bytes, file.name, "image/jpeg", notes)
@@ -337,7 +343,8 @@ private fun CameraScreen(onCaptured: (ImageInput) -> Unit, onError: (String) -> 
                     })
                 }) { Text("Сделать фото") }
             }
-            Text("Сохранённый CameraX кадр обычно JPEG: это не сырые данные сенсора. RAW/DNG в MVP не реализован.", style = MaterialTheme.typography.bodySmall)
+            val target = cameraCaptureTargetResolution()
+            Text("Камера запросит 4:3 кадр до ${target.width}×${target.height} по безопасному бюджету памяти; фактический размер покажем после съёмки. Снимок — JPEG, уже сжатый камерой, не RAW/DNG.", style = MaterialTheme.typography.bodySmall)
         } else {
             InfoCard("Для предпросмотра и съёмки требуется разрешение камеры.")
             Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Разрешить камеру") }
@@ -359,10 +366,18 @@ private fun CameraPreview(front: Boolean, onCaptureReady: (ImageCapture?) -> Uni
                 runCatching {
                     provider = future.get()
                     val preview = Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
-                    val photo = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
-                    val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+                    val target = cameraCaptureTargetResolution()
+                    val resolutionSelector = ResolutionSelector.Builder()
+                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO)
+                        .setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER))
+                        .build()
+                    val photo = ImageCapture.Builder()
+                        .setResolutionSelector(resolutionSelector)
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                        .build()
+                    val cameraSelector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
                     provider?.unbindAll()
-                    provider?.bindToLifecycle(lifecycleOwner, selector, preview, photo)
+                    provider?.bindToLifecycle(lifecycleOwner, cameraSelector, preview, photo)
                     onCaptureReady(photo)
                 }.onFailure { onCaptureReady(null) }
             }, ContextCompat.getMainExecutor(context))
@@ -387,6 +402,14 @@ private const val MAX_INPUT_BYTES = 128L * 1024L * 1024L
 private const val MAX_MVP_PIXELS = 12_000_000L
 
 private fun currentInputLimitBytes(): Long = minOf(MAX_INPUT_BYTES, Runtime.getRuntime().maxMemory() / 8L)
+
+private fun currentInputLimitPixels(): Long = minOf(MAX_MVP_PIXELS, Runtime.getRuntime().maxMemory() / 40L)
+
+/** CameraX must choose a supported 4:3 capture no larger than the app's current pixel budget. */
+private fun cameraCaptureTargetResolution(): Size {
+    val targetWidth = kotlin.math.sqrt(currentInputLimitPixels() * (4.0 / 3.0)).toInt().coerceAtLeast(1)
+    return Size(targetWidth, targetWidth * 3 / 4)
+}
 
 private fun readImage(resolver: ContentResolver, uri: Uri): ImageInput {
     val bytes = resolver.openInputStream(uri)?.use { readBounded(it, currentInputLimitBytes()) } ?: error("Cannot open image")
@@ -419,8 +442,7 @@ private fun decodeImageSafely(bytes: ByteArray): Pair<Bitmap, Boolean> {
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Формат изображения не распознан" }
     val pixels = bounds.outWidth.toLong() * bounds.outHeight.toLong()
-    val heapBudgetPixels = Runtime.getRuntime().maxMemory() / 40L
-    val allowedPixels = minOf(MAX_MVP_PIXELS, heapBudgetPixels)
+    val allowedPixels = currentInputLimitPixels()
     require(pixels <= allowedPixels) {
         "Изображение ${bounds.outWidth}×${bounds.outHeight} превышает безопасный MVP-предел ${allowedPixels} пикселей; автоматическое уменьшение отключено для Exact"
     }
