@@ -51,10 +51,10 @@ jobs:
       - name: List APK outputs
         run: |
           echo "=== APK files ==="
-          find . -name "*.apk" -type f 2>/dev/null
+          find . -name "*.apk" -type f 2>/dev/null || true
           echo "=== Debug APK dir ==="
-          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Dir not found"
-          find app/build -name "*.apk" 2>/dev/null
+          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Dir not found (APK may be elsewhere)"
+          find app/build -name "*.apk" 2>/dev/null || true
 
       - name: Verify APK
         run: |
