@@ -34,6 +34,11 @@ jobs:
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
+
       - name: Install Android platform 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
