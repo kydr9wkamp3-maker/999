@@ -1,0 +1,203 @@
+name: Android CI/CD
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  ANDROID_PLATFORM: '35'
+  BUILD_TOOLS_VERSION: '35.0.0'
+  NDK_VERSION: '27.2.12479018'
+  CMAKE_VERSION: '3.22.1'
+
+jobs:
+  verify:
+    name: Tests, lint, debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install pinned Android toolchains
+        run: >-
+          sdkmanager
+          "platforms;android-${ANDROID_PLATFORM}"
+          "build-tools;${BUILD_TOOLS_VERSION}"
+          "ndk;${NDK_VERSION}"
+          "cmake;${CMAKE_VERSION}"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check wrapper and native codec
+        run: |
+          chmod +x ./gradlew
+          ./tests/native/run.sh
+
+      - name: Run unit tests and lint
+        run: |
+          mkdir -p build
+          set +e
+          set -o pipefail
+          ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee build/ci-tests.log
+          tests_status=${PIPESTATUS[0]}
+          ./gradlew lintDebug --stacktrace 2>&1 | tee build/ci-lint.log
+          lint_status=${PIPESTATUS[0]}
+          for report in build/ci-tests.log build/ci-lint.log; do
+            if grep -q '^FAILURE: Build failed' "$report"; then
+              summary=$(grep -iE '^e: |\.kt:[0-9]+:[0-9]+|error:|aapt:|resource linking failed|failed linking references|duplicate|not found|already defined|^FAILURE:|\* What went wrong:|Execution failed for task|Caused by:' "$report" | tail -n 30 | tr '\n' ' ' | cut -c1-5000)
+              echo "::error title=Gradle diagnostic::$summary"
+            fi
+          done
+          if [ "$tests_status" -ne 0 ] || [ "$lint_status" -ne 0 ]; then exit 1; fi
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: adamant-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports-${{ github.run_id }}
+          path: |
+            build/ci-tests.log
+            build/ci-lint.log
+            app/build/reports/tests/
+            app/build/test-results/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release:
+    name: Signed release APK and GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install pinned Android toolchains
+        run: >-
+          sdkmanager
+          "platforms;android-${ANDROID_PLATFORM}"
+          "build-tools;${BUILD_TOOLS_VERSION}"
+          "ndk;${NDK_VERSION}"
+          "cmake;${CMAKE_VERSION}"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate release secrets and decode signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo 'Missing KEYSTORE_BASE64 secret' >&2; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo 'Missing KEYSTORE_PASSWORD secret' >&2; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'Missing KEY_ALIAS secret' >&2; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'Missing KEY_PASSWORD secret' >&2; exit 1; }
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/adamant-release.keystore"
+          test -s "$RUNNER_TEMP/adamant-release.keystore"
+
+      - name: Validate tag and set app version
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected a semantic version tag such as v1.2.3 or v1.2.3-rc.1" >&2
+            exit 1
+          fi
+          {
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}"
+            echo "APP_VERSION_CODE=${GITHUB_RUN_NUMBER}"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/adamant-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Verify signature and create SHA-256 checksum
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/release/app-release.apk'
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/apksigner" verify --verbose --print-certs "$APK"
+          cd app/build/outputs/apk/release
+          sha256sum app-release.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: adamant-release-${{ github.ref_name }}
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/SHA256SUMS.txt
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

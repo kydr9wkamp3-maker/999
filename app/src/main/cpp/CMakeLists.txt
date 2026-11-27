@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(adamant_native LANGUAGES CXX)
+add_library(adamant SHARED adamant_codec.cpp)
+find_library(log-lib log)
+target_link_libraries(adamant ${log-lib})
+target_compile_features(adamant PRIVATE cxx_std_17)
+target_compile_options(adamant PRIVATE -Wall -Wextra -Wpedantic -O2)

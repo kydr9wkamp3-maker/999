@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <!-- Declared for platform-compatible gallery integrations; the current picker flow does not request it. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Gallery access is mediated by the system photo picker; no broad media permission is requested. -->
+    <!-- Temporary phase-0 diagnostic aid; not a replacement for streaming/tiled processing. -->
+    <application
+        android:allowBackup="false"
+        android:largeHeap="true"
+        android:label="ADAMANT Lab"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Adamant">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

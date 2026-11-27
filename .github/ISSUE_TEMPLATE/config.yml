@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/kydr9wkamp3-maker/999/security/advisories/new
+    about: Report security issues privately; do not post vulnerable files or photos in a public issue.
