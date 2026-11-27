@@ -1,5 +1,7 @@
 package com.chromecore.camera.ui.screens.devicelab
 
+import androidx.compose.runtime.Composable
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +26,7 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
  * Shows real hardware capabilities of the device.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 @Composable
 fun DeviceLabScreen(onBack: () -> Unit) {
     var report by remember { mutableStateOf<DeviceReportData?>(null) }
@@ -129,6 +132,7 @@ fun DeviceLabScreen(onBack: () -> Unit) {
 }
 
 @Composable
+@Composable
 private fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
@@ -149,6 +153,7 @@ private fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit)
     }
 }
 
+@Composable
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(

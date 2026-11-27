@@ -1,5 +1,7 @@
 package com.chromecore.camera.ui.screens.camera
 
+import androidx.compose.runtime.Composable
+
 import android.Manifest
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -61,6 +63,7 @@ import android.content.Context
  */
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
+@Composable
 fun CameraScreen(
     onNavigateToGallery: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -86,6 +89,7 @@ fun CameraScreen(
     }
 }
 
+@Composable
 @Composable
 private fun PermissionRequestScreen(onRequestPermission: () -> Unit) {
     Box(
@@ -130,6 +134,7 @@ private fun PermissionRequestScreen(onRequestPermission: () -> Unit) {
     }
 }
 
+@Composable
 @Composable
 private fun CameraContent(
     onNavigateToGallery: () -> Unit,
@@ -284,6 +289,7 @@ private fun CameraContent(
 }
 
 @Composable
+@Composable
 private fun CameraPreview(onTapToFocus: (Offset) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -336,6 +342,7 @@ private fun CameraPreview(onTapToFocus: (Offset) -> Unit) {
 }
 
 @Composable
+@Composable
 private fun FocusIndicator(position: Offset) {
     Box(
         modifier = Modifier
@@ -354,6 +361,7 @@ private fun FocusIndicator(position: Offset) {
     )
 }
 
+@Composable
 @Composable
 private fun TopControls(
     flashMode: FlashMode,
@@ -396,6 +404,7 @@ private fun TopControls(
 }
 
 @Composable
+@Composable
 private fun CameraControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
@@ -416,6 +425,7 @@ private fun CameraControlButton(
     }
 }
 
+@Composable
 @Composable
 private fun ZoomSlider(zoomLevel: Float, onZoomChange: (Float) -> Unit) {
     Column(
@@ -445,6 +455,7 @@ private fun ZoomSlider(zoomLevel: Float, onZoomChange: (Float) -> Unit) {
 }
 
 @Composable
+@Composable
 private fun ModeSelector(selectedMode: CameraModeEnum, onModeSelected: (CameraModeEnum) -> Unit) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -466,6 +477,7 @@ private fun ModeSelector(selectedMode: CameraModeEnum, onModeSelected: (CameraMo
     }
 }
 
+@Composable
 @Composable
 private fun ShutterButton(isRecording: Boolean, onClick: () -> Unit) {
     Box(
@@ -502,6 +514,7 @@ private fun ShutterButton(isRecording: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+@Composable
 private fun GalleryThumbnail(onClick: () -> Unit) {
     Box(
         modifier = Modifier
@@ -521,6 +534,7 @@ private fun GalleryThumbnail(onClick: () -> Unit) {
     }
 }
 
+@Composable
 @Composable
 private fun FilterStrip() {
     val filters = listOf(

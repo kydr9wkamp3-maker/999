@@ -1,5 +1,7 @@
 package com.chromecore.camera.ui.screens.settings
 
+import androidx.compose.runtime.Composable
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.chromecore.camera.ui.theme.ChromecoreColors
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     Scaffold(
@@ -91,6 +94,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
+@Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Text(
@@ -105,6 +109,7 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
     }
 }
 
+@Composable
 @Composable
 private fun SettingsToggle(title: String, subtitle: String, checked: Boolean) {
     var isChecked by remember { mutableStateOf(checked) }
@@ -134,6 +139,8 @@ private fun SettingsToggle(title: String, subtitle: String, checked: Boolean) {
 }
 
 @Composable
+@Composable
+@Composable
 private fun SettingsToggleItem(title: String, value: String) {
     Row(
         modifier = Modifier
@@ -148,6 +155,7 @@ private fun SettingsToggleItem(title: String, value: String) {
     }
 }
 
+@Composable
 @Composable
 private fun SettingsItem(title: String, subtitle: String = "") {
     Row(

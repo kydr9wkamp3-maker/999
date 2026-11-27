@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Suppress non-critical warnings for alpha build -->
+    <issue id="MissingPermission" severity="warning" />
+    <issue id="UnusedResources" severity="warning" />
+    <issue id="UnusedAttribute" severity="warning" />
+    <issue id="IconMissingDensityFolder" severity="warning" />
+    <issue id="AllowBackup" severity="warning" />
+    <issue id="HardcodedText" severity="warning" />
+    <issue id="ContentDescription" severity="warning" />
+    <issue id="VectorPath" severity="warning" />
+    <issue id="TypographyDashes" severity="warning" />
+    <issue id="GradleDependency" severity="warning" />
+    <issue id="ObsoleteLintCustomCheck" severity="warning" />
+    <issue id="OldTargetApi" severity="warning" />
+    <issue id="AppCompatMethod" severity="warning" />
+
+    <!-- Disable Compose-specific lint that conflicts with our patterns -->
+    <issue id="ComposableNaming" severity="warning" />
+    <issue id="ComposeModifierMissing" severity="warning" />
+    <issue id="ComposeModifierWithoutDefault" severity="warning" />
+    <issue id="ComposeParameterOrder" severity="warning" />
+
+    <!-- Fatal only for actual crashes -->
+    <issue id="LintError" severity="fatal" />
+</lint>

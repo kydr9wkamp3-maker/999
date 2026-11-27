@@ -1,5 +1,7 @@
 package com.chromecore.camera.ui.screens.gallery
 
+import androidx.compose.runtime.Composable
+
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +31,7 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
  * Shows captured photos in a chrome-styled grid.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 @Composable
 fun GalleryScreen(
     onPhotoClick: (String) -> Unit,
@@ -94,6 +97,7 @@ fun GalleryScreen(
 }
 
 @Composable
+@Composable
 private fun EmptyGallery() {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -123,6 +127,7 @@ private fun EmptyGallery() {
     }
 }
 
+@Composable
 @Composable
 private fun PhotoThumbnail(uri: String, onClick: () -> Unit) {
     AsyncImage(
