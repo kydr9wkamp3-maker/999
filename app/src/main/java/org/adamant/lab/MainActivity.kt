@@ -12,6 +12,7 @@ import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -143,7 +144,7 @@ private fun AdamantApp() {
                         onCaptured = { input -> selected = input; result = null; status = "Фото получено: JPEG (уже сжатый камерой)"; screen = Screen.GALLERY },
                         onError = { status = it }
                     )
-                    Screen.GALLERY -> GalleryScreen(selected, onPick = { pickImage.launch(ActivityResultContracts.PickVisualMedia.ImageOnly) })
+                    Screen.GALLERY -> GalleryScreen(selected, onPick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                     Screen.COMPRESS -> CompressScreen(
                         input = selected, codec = selectedCodec, mode = selectedMode, busy = busy,
                         onCodec = { selectedCodec = it }, onMode = { selectedMode = it },
