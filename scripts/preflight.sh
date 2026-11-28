@@ -47,5 +47,20 @@ if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
   say "gradle/wrapper/gradle-wrapper.jar is missing"; fail=1
 fi
 
+# 9) assertTrue(true) в тестах (пустые тесты)
+if grep -RInE 'assertTrue\s*\(\s*true\s*\)' --include='*.kt' app/src/test app/src/androidTest 2>/dev/null; then
+  say "empty test: assertTrue(true)"; fail=1
+fi
+
+# 10) /* TODO */ в main коде (заглушки)
+if grep -RInE '/\*\s*TODO\s*\*/' --include='*.kt' app/src/main 2>/dev/null; then
+  say "stub TODO in main code"; fail=1
+fi
+
+# 11) am start с пакетом без .debug (неправильный пакет)
+if grep -RInE 'am start.*com\.chromecore\.camera[^.]*\.' --include='*.sh' --include='*.md' scripts docs 2>/dev/null | grep -v '.debug'; then
+  say "am start with wrong package (missing .debug)"; fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then say "FAILED"; exit 1; fi
 say "OK"

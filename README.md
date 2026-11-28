@@ -1,107 +1,90 @@
-# CHROMECORE X — Ultimate Mobile Photography Platform
+# CHROMECORE X
 
 <p align="center">
-  <strong>Professional computational photography for Android.</strong><br>
-  <em>Chromecore / Metalheart design identity.</em><br>
-  Target: Motorola Moto G85 5G (Snapdragon 6s Gen 3, Sony LYTIA 600)
+  <strong>Камера для Android с хромовым дизайном.</strong><br>
+  <em>Obsidian Chrome UI · CameraX · Jetpack Compose</em><br>
+  Target: Motorola Moto G85 5G
 </p>
 
 ---
 
-## What is CHROMECORE X?
+## Что сейчас работает
 
-CHROMECORE X is a full-featured Android camera application with:
+- **CameraX preview** — задняя и фронтальная камеры
+- **Сохранение фото** — через MediaStore в `Pictures/ChromecoreX/` (видно в галерее)
+- **Зум** — щипок + слайдер + индикатор уровня
+- **Вспышка** — переключение OFF / AUTO / ON (иконка)
+- **Переключение камер** — кнопка в правом верхнем углу
+- **Настройки** — экран настроек (кнопка ⚙️, заготовка)
+- **Chromecore Theme** — тёмная тема, хромовая кнопка затвора
 
-- **Camera2 + CameraX** engine with full manual controls
-- **Computational photography** — multi-frame HDR, noise reduction, detail recovery
-- **30+ filter presets** — Liquid Chrome, Metalheart, Teal & Orange, Film emulation, VHS, Pixel Art, and more
-- **Non-destructive editor** — brightness, contrast, saturation, temperature, sharpness, vignette, grain
-- **Custom creative effects** — RGB Split, Scanlines, Pixel Sort, Dithering, Pixelation
-- **Device Laboratory** — real hardware capability scanning and diagnostic export
-- **Chromecore design system** — obsidian black, chrome silver, liquid metal UI
+## Что НЕ работает (PLANNED)
 
-## Architecture
+- [ ] Pro-режим (ISO, выдержка, WB, фокус)
+- [ ] HDR / Ночь / Портрет (через CameraX Extensions)
+- [ ] Живые GPU-фильтры
+- [ ] AR маски и стикеры
+- [ ] Нод-редактор эффектов
+- [ ] Видео
+- [ ] Редактор фото
+- [ ] Галерея внутри приложения
+- [ ] Device Lab (диагностика железа)
 
-```
-app/src/main/kotlin/com/chromecore/camera/
-├── engine/           Camera2 API engine with full lifecycle management
-├── capabilities/     Device hardware scanner (Camera2, codecs, GPU)
-├── processing/       Image processing pipeline (non-destructive)
-├── filters/          Filter engine with 30+ named presets
-├── ui/
-│   ├── theme/        Chromecore Material3 design system
-│   ├── navigation/   Type-safe Compose Navigation
-│   ├── screens/
-│   │   ├── camera/   Full-bleed camera with mode selector & filter strip
-│   │   ├── editor/   Non-destructive photo editor
-│   │   ├── gallery/  Grid gallery with MediaStore integration
-│   │   ├── settings/ Settings with progressive disclosure
-│   │   └── devicelab/ Hardware capability viewer
-│   └── components/   Shared UI components
-├── di/               Hilt dependency injection
-├── models/           Data models
-└── utils/            MediaStore helpers, file utilities
-```
+См. полный план: `AGENTS.md` §8.
 
-## Tech Stack
+## Стек
 
-| Layer          | Technology                                      |
-| -------------- | ----------------------------------------------- |
-| Language       | Kotlin 2.1                                      |
-| UI             | Jetpack Compose + Material3                     |
-| Camera         | CameraX 1.4 + Camera2 API                       |
-| DI             | Hilt (Dagger)                                   |
-| Async          | Kotlin Coroutines + Flow                        |
-| Image Loading  | Coil                                            |
-| Storage        | MediaStore (scoped storage)                     |
-| AI (planned)   | ML Kit, LiteRT                                  |
-| GPU (planned)  | OpenGL ES 3.2, GLSL shaders                     |
-| Build          | Gradle 8.7, Version Catalog                     |
+| Компонент | Версия |
+|-----------|--------|
+| Kotlin | 2.0.21 |
+| AGP | 8.7.3 |
+| Gradle | 8.9 |
+| JDK | 17 |
+| compileSdk / targetSdk | 35 |
+| minSdk | 26 |
+| Compose BOM | 2024.12.01 |
+| CameraX | 1.3.4 |
 
-## Build
+## Сборка
 
 ```bash
 ./gradlew assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Requires: Android SDK 35, JDK 17, Gradle 8.7+.
+Debug-пакет: `com.chromecore.camera.debug`
 
-## Design Identity
+Запуск на устройстве:
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.chromecore.camera.debug/com.chromecore.camera.ui.MainActivity
+```
 
-**Obsidian Chrome** — the visual language of CHROMECORE X:
+## Структура репо
 
-- Obsidian Black `#0A0A0C` — backgrounds
-- Chrome Silver `#C8CCD0` — text and icons
-- Platinum `#D4D7DC` — highlights
-- Titanium Grey `#4A4A52` — secondary surfaces
-- Cyan Accent `#4DD0E1` — interactive elements
-- Cold White `#F5F5F7` — primary text
+```
+app/src/main/kotlin/com/chromecore/camera/
+├── ChromecoreApp.kt
+├── ui/
+│   ├── MainActivity.kt
+│   ├── theme/
+│   │   ├── ChromecoreColors.kt   # палитра Obsidian Chrome
+│   │   └── Theme.kt
+│   ├── components/
+│   │   ├── ShutterButton.kt      # хромированная кнопка затвора
+│   │   └── ModeSelector.kt       # переключатель режимов (заготовка)
+│   └── screens/
+│       ├── camera/CameraScreen.kt
+│       └── settings/SettingsScreen.kt
+```
 
-No glassmorphism. No purple gradients. Liquid chrome, polished metal, reflective surfaces.
+## Документация
 
-## Development Phases
+- `AGENTS.md` — полный план разработки и правила
+- `EFFECTS_CATALOG.md` — каталог планируемых эффектов
+- `docs/PROGRESS.md` — прогресс по этапам
+- `docs/AUDIT.md` — история проблем и причины
 
-1. **P0 — Core Camera** ✅ — Camera2 engine, preview, capture, switch, flash, zoom
-2. **P0 — Device Scanner** ✅ — Hardware capability probe with JSON export
-3. **P1 — Editor** ✅ — Non-destructive adjustments + 30+ filter presets
-4. **P1 — Gallery** ✅ — MediaStore integration, grid view
-5. **P2 — AI Engine** — LiteRT models for denoise, super-res, segmentation
-6. **P2 — GPU Shaders** — OpenGL ES real-time filter pipeline
-7. **P3 — Video** — MediaCodec recording, video effects
-8. **P3 — Node Engine** — TouchDesigner-inspired visual programming
+## Лицензия
 
-## Target Device
-
-| Spec              | Motorola Moto G85 5G                          |
-| ----------------- | --------------------------------------------- |
-| SoC               | Snapdragon 6s Gen 3                           |
-| GPU               | Adreno 619                                    |
-| Main Camera       | 50 MP Sony LYTIA 600, OIS                     |
-| Ultra-Wide        | 8 MP, 118°                                    |
-| Front Camera      | 32 MP                                         |
-| Display           | pOLED 120 Hz                                  |
-| RAM               | 8 GB                                          |
-
-## License
-
-Apache License 2.0 — see [LICENSE](LICENSE) for details.
+См. `LICENSE`.

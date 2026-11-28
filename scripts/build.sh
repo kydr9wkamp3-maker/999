@@ -93,7 +93,7 @@ if command -v adb &>/dev/null; then
         echo "▸ Installing on device..."
         adb install -r "$APK"
         echo "▸ Launching app..."
-        adb shell am start -n com.chromecore.camera/.ui.MainActivity
+        adb shell am start -n com.chromecore.camera.debug/.ui.MainActivity
         echo "  ✓ App launched on device"
     else
         echo "  No device connected. Install manually:"

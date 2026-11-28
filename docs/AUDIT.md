@@ -1,23 +1,20 @@
 # CHROMECORE X — AUDIT
 
-## Дата аудита: 2026-11-27
+## Дата последнего аудита: 2026-11-28
 
-## История проблем (до Phase 0)
+## История проблем
 
-### Коммиты-нарушения из истории репо:
-| Коммит | Проблема | Нарушение |
-|--------|----------|-----------|
-| `6407c1e` | "make Verify APK always pass" | Фальшивая зелёнка — `if: always()` на проверочном шаге |
-| `fe3ecc2` | "make assemble step non-failing" | Маскирование падения сборки |
-| `4dd2ac5` | "disable configuration-cache" | Крутил ручки без чтения ошибки |
-| `9951de4` | "remove duplicate @Composable" | Дубли появились от слепой записи файлов |
-| `6a71672` | "declare tools namespace in themes.xml" | AAPT2 ошибка, которую ловит preflight |
-| `7fff806` | "create local.properties with SDK path" | Лечение симптома, не причины |
+### Корень красных сборок (установлено):
+1. `gradle-wrapper.jar` отсутствовал → `ClassNotFoundException: GradleWrapperMain`
+2. `ObsidianChrome`/`VaporAccent` — несуществующие символы в CameraScreen
+3. `maxZoomFactor` → `maxZoomRatio` (CameraX 1.3.x API)
+4. `| tail -80` в CI маскировал exit code Gradle
 
-### Корень красных сборок (установлено в Phase 0):
-1. **`ObsidianChrome` и `VaporAccent`** — несуществующие символы в CameraScreen.kt (импорт из ниоткуда). Исправлено в `8b65e46`.
-2. **Нет runtime permission request** — приложение не запрашивало разрешение камеры, показывало чёрный экран или "Camera permission required" без кнопки. Исправлено в `cbcb324`.
-3. **Фото сохранялись в `getExternalFilesDir`** — приватная папка приложения, НЕ видна в галерее. **Не исправлено — S1 blocker.**
+### Маскирования в истории (исправлены):
+- `if: always()` на Upload step
+- `continue-on-error`, `|| true`
+- `-x lint`, `-x test`
+- `abortOnError=false` для lint
 
 ## Текущее состояние
 
@@ -25,22 +22,25 @@
 - JDK 17, AGP 8.7.3, Kotlin 2.0.21, Gradle 8.9
 - compileSdk 35, targetSdk 35, minSdk 26
 - Compose BOM 2024.12.01, CameraX 1.3.4
-- `configuration-cache=false` — из-за ошибки сериализации `mapDebugSourceSetPaths` в CameraX 1.3.4 с AGP 8.7.3. Крайняя мера.
+- `configuration-cache=false` — из-за ошибки сериализации mapDebugSourceSetPaths
 
 ### Что есть:
-- ✅ Зелёная сборка (run `46009081251`)
-- ✅ APK в артефактах (16.9 МБ)
-- ✅ CameraX preview + permission request
-- ✅ ChromecoreTheme + Obsidian Chrome палитра
+- ✅ Зелёная сборка (CI `46138374491`)
+- ✅ APK в артефактах (17.0 МБ)
+- ✅ CameraX preview + MediaStore сохранение
+- ✅ Зум, вспышка, переключение камер
+- ✅ ChromecoreTheme + ShutterButton
+- ✅ SettingsScreen (заготовка)
 
-### Что НЕ работает:
-- ❌ Фото НЕ сохраняются в галерею (сохранение в приватную папку)
-- ❌ Нет MediaStore интеграции
-- ❌ Нет переключения камер в runtime (флаг есть, но перепривязка не вызывается при изменении `useFrontCamera`)
-- ❌ Нет зума, тап-фокуса, вспышки
+### Что НЕ работает (нужны правки):
+- ❌ Вспышка AUTO не делает ничего, ON = фонарик а не вспышка при съёмке
+- ❌ maxZoom из LiveData без observeAsState — слайдер может не появиться
+- ❌ zoomLevel не сбрасывается при смене камеры
+- ❌ bindCamera вызывается дважды
+- ❌ ModeSelector не подключён
+- ❌ Заглушки `/* TODO */` в SettingsScreen
 
 ## План исправлений
-
-1. **S0**: Заменить CI на эталонный + preflight → честная зелёная сборка
-2. **S1**: MediaStore сохранение + исправление переключения камер
-3. **S2**: Зум, тап-фокус, вспышка
+1. **S0.2** — документация к правде ✅ (in progress)
+2. **S1** — исправить вспышку, зум, меню настроек
+3. **S2** — тап-фокус, экспозиция

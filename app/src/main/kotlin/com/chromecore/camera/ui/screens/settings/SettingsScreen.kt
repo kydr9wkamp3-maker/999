@@ -1,7 +1,6 @@
 package com.chromecore.camera.ui.screens.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,34 +73,9 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SettingItem(
-                    icon = Icons.Default.Camera,
-                    title = "Качество фото",
-                    subtitle = "Максимальное",
-                    onClick = { /* TODO */ }
-                )
-                SettingItem(
-                    icon = Icons.Default.FlashOn,
-                    title = "Вспышка",
-                    subtitle = "Авто",
-                    onClick = { /* TODO */ }
-                )
-                SettingItem(
-                    icon = Icons.Default.GridOn,
-                    title = "Сетка",
-                    subtitle = "Правило третей",
-                    onClick = { /* TODO */ }
-                )
-                SettingItem(
-                    icon = Icons.Default.HdrOn,
-                    title = "HDR",
-                    subtitle = "Включён",
-                    onClick = { /* TODO */ }
-                )
-                SettingItem(
                     icon = Icons.Default.Info,
                     title = "О приложении",
-                    subtitle = "CHROMECORE X v1.0",
-                    onClick = { /* TODO */ }
+                    subtitle = "CHROMECORE X v1.0.0 — S0.2"
                 )
             }
         }
@@ -112,13 +86,11 @@ fun SettingsScreen(
 private fun SettingItem(
     icon: ImageVector,
     title: String,
-    subtitle: String,
-    onClick: () -> Unit
+    subtitle: String
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

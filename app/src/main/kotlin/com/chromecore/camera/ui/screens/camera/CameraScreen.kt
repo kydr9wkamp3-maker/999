@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -104,14 +103,7 @@ fun CameraScreen() {
     }
 
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
-
-    if (showSettings) {
-        com.chromecore.camera.ui.screens.settings.SettingsScreen(
-            onBack = { showSettings = false }
-        )
-        return
-    }
+    // Settings screen removed until items have real logic (AGENTS.md §2.4)
 
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
@@ -143,24 +135,10 @@ fun CameraScreen() {
             // Top controls row
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
+                    .align(Alignment.TopEnd)
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Settings button
-                IconButton(
-                    onClick = { showSettings = true },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        "Settings",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
                 // Flash toggle
                 IconButton(
                     onClick = {
