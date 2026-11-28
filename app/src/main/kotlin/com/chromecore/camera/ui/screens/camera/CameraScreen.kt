@@ -61,11 +61,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.observeAsState
 import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 enum class FlashMode { OFF, ON, AUTO }
+
+private fun FlashMode.toImageCaptureMode(): Int = when (this) {
+    FlashMode.OFF -> ImageCapture.FLASH_MODE_OFF
+    FlashMode.ON -> ImageCapture.FLASH_MODE_ON
+    FlashMode.AUTO -> ImageCapture.FLASH_MODE_AUTO
+}
 
 @Composable
 fun CameraScreen() {
@@ -103,18 +110,23 @@ fun CameraScreen() {
     }
 
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
+
+    // Observe max zoom from camera
+    val maxZoomState = currentCamera?.cameraInfo?.zoomState?.observeAsState()
+    val maxZoom = maxZoomState?.value?.maxZoomRatio ?: 1f
+
+    // Reset zoom when camera switches
+    LaunchedEffect(useFrontCamera) {
+        zoomLevel = 1f
+        applyZoom(currentCamera, 1f, maxZoom)
+    }
+
     // Settings screen removed until items have real logic (AGENTS.md §2.4)
 
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
             AndroidView(
-                factory = { ctx ->
-                    PreviewView(ctx).also { previewView ->
-                        bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture) { cam ->
-                            currentCamera = cam
-                        }
-                    }
-                },
+                factory = { ctx -> PreviewView(ctx) },
                 update = { previewView ->
                     bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture) { cam ->
                         currentCamera = cam
@@ -124,10 +136,9 @@ fun CameraScreen() {
                     .fillMaxSize()
                     .transformable(
                         state = rememberTransformableState { zoomChange, _, _ ->
-                            val maxZoom = getMaxZoom(currentCamera)
                             val newZoom = (zoomLevel * zoomChange).coerceIn(1f, maxZoom)
                             zoomLevel = newZoom
-                            applyZoom(currentCamera, newZoom)
+                            applyZoom(currentCamera, newZoom, maxZoom)
                         }
                     )
             )
@@ -143,7 +154,7 @@ fun CameraScreen() {
                 IconButton(
                     onClick = {
                         flashMode = flashMode.next()
-                        applyFlash(currentCamera, flashMode)
+                        applyFlash(imageCapture, flashMode)
                     },
                     modifier = Modifier.size(48.dp)
                 ) {
@@ -182,13 +193,12 @@ fun CameraScreen() {
             }
 
             // Zoom slider
-            val maxZoom = getMaxZoom(currentCamera)
             if (maxZoom > 1f) {
                 Slider(
                     value = zoomLevel,
                     onValueChange = { newLevel ->
                         zoomLevel = newLevel
-                        applyZoom(currentCamera, newLevel)
+                        applyZoom(currentCamera, newLevel, maxZoom)
                     },
                     valueRange = 1f..maxZoom,
                     modifier = Modifier
@@ -256,11 +266,10 @@ fun CameraScreen() {
     }
 }
 
-private fun getMaxZoom(camera: Camera?): Float =
-    camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
+// getMaxZoom removed — using observeAsState value directly
 
-private fun applyZoom(camera: Camera?, level: Float) {
-    camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, getMaxZoom(camera)))
+private fun applyZoom(camera: Camera?, level: Float, maxZoom: Float = 1f) {
+    camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, maxZoom))
 }
 
 private fun FlashMode.next(): FlashMode = when (this) {
@@ -269,12 +278,8 @@ private fun FlashMode.next(): FlashMode = when (this) {
     FlashMode.ON -> FlashMode.OFF
 }
 
-private fun applyFlash(camera: Camera?, mode: FlashMode) {
-    when (mode) {
-        FlashMode.OFF -> camera?.cameraControl?.enableTorch(false)
-        FlashMode.ON -> camera?.cameraControl?.enableTorch(true)
-        FlashMode.AUTO -> camera?.cameraControl?.enableTorch(false)
-    }
+private fun applyFlash(imageCapture: ImageCapture, mode: FlashMode) {
+    imageCapture.flashMode = mode.toImageCaptureMode()
 }
 
 private fun bindCamera(
