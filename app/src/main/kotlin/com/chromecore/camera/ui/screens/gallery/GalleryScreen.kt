@@ -37,6 +37,19 @@ fun GalleryScreen(
 ) {
     val context = LocalContext.current
     val photos = remember { loadPhotos(context) }
+    var selectedPhoto by remember { mutableStateOf<PhotoItem?>(null) }
+
+    if (selectedPhoto != null) {
+        PhotoViewerScreen(
+            photo = selectedPhoto!!,
+            onBack = { selectedPhoto = null },
+            onDelete = {
+                // Reload photos after deletion
+                selectedPhoto = null
+            }
+        )
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -96,7 +109,9 @@ fun GalleryScreen(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(photos) { photo ->
-                        PhotoThumbnail(photo)
+                        PhotoThumbnail(photo) {
+                            selectedPhoto = photo
+                        }
                     }
                 }
             }
@@ -105,14 +120,17 @@ fun GalleryScreen(
 }
 
 @Composable
-private fun PhotoThumbnail(photo: PhotoItem) {
+private fun PhotoThumbnail(
+    photo: PhotoItem,
+    onClick: () -> Unit
+) {
     AsyncImage(
         model = photo.uri,
         contentDescription = photo.displayName,
         contentScale = ContentScale.Crop,
         modifier = Modifier
             .aspectRatio(1f)
-            .clickable { /* TODO: open photo viewer */ }
+            .clickable(onClick = onClick)
             .background(ChromecoreColors.GraphiteDark)
     )
 }
