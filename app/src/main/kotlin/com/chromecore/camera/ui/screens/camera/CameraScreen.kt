@@ -18,6 +18,7 @@ import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -123,6 +125,7 @@ fun CameraScreen() {
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
     var focusRingPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
     var exposureIndex by remember { mutableIntStateOf(0) }
+    var showGrid by remember { mutableStateOf(true) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
@@ -200,6 +203,24 @@ fun CameraScreen() {
                 )
             }
 
+            // Rule of thirds grid overlay
+            if (showGrid) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val lineColor = Color.White.copy(alpha = 0.3f)
+                    val strokeWidth = 1.dp.toPx()
+
+                    // Vertical lines at 1/3 and 2/3
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(w / 3f, 0f), androidx.compose.ui.geometry.Offset(w / 3f, h), strokeWidth)
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(2f * w / 3f, 0f), androidx.compose.ui.geometry.Offset(2f * w / 3f, h), strokeWidth)
+
+                    // Horizontal lines at 1/3 and 2/3
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(0f, h / 3f), androidx.compose.ui.geometry.Offset(w, h / 3f), strokeWidth)
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(0f, 2f * h / 3f), androidx.compose.ui.geometry.Offset(w, 2f * h / 3f), strokeWidth)
+                }
+            }
+
             // Top controls row
             Row(
                 modifier = Modifier
@@ -223,6 +244,19 @@ fun CameraScreen() {
                         },
                         contentDescription = "Flash mode: $flashMode",
                         tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Grid toggle
+                IconButton(
+                    onClick = { showGrid = !showGrid },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.GridOn,
+                        "Toggle grid",
+                        tint = if (showGrid) ChromecoreColors.CyanAccent else Color.White,
                         modifier = Modifier.size(28.dp)
                     )
                 }
