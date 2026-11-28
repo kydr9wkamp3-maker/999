@@ -1,0 +1,54 @@
+# Built artifacts
+*.iml
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ
+.idea/
+*.iws
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Android
+local.properties
+*.log
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.jks
+*.keystore
+google-services.json
+*.env
+
+# Node (if any tooling)
+node_modules/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Large files
+*.tflite
+*.onnx
+*.pb
+*.h5
