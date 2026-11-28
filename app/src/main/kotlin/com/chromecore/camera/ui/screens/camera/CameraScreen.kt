@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -126,6 +127,9 @@ fun CameraScreen() {
     var focusRingPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
     var exposureIndex by remember { mutableIntStateOf(0) }
     var showGrid by remember { mutableStateOf(true) }
+    var timerSeconds by remember { mutableIntStateOf(0) }
+    var countdown by remember { mutableIntStateOf(0) }
+    var isCountingDown by remember { mutableStateOf(false) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
@@ -147,6 +151,21 @@ fun CameraScreen() {
         if (focusRingPosition != null) {
             kotlinx.coroutines.delay(2000)
             focusRingPosition = null
+        }
+    }
+
+    // Countdown timer
+    LaunchedEffect(countdown) {
+        if (countdown > 0) {
+            isCountingDown = true
+            kotlinx.coroutines.delay(1000)
+            countdown--
+        } else if (isCountingDown) {
+            isCountingDown = false
+            // Take photo when countdown reaches 0
+            takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
+                lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+            }
         }
     }
 
@@ -201,6 +220,21 @@ fun CameraScreen() {
                         .size(80.dp)
                         .border(2.dp, ChromecoreColors.CyanAccent, CircleShape)
                 )
+            }
+
+            // Countdown display
+            if (countdown > 0) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "$countdown",
+                        color = Color.White,
+                        fontSize = 120.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Light
+                    )
+                }
             }
 
             // Rule of thirds grid overlay
@@ -258,6 +292,25 @@ fun CameraScreen() {
                         "Toggle grid",
                         tint = if (showGrid) ChromecoreColors.CyanAccent else Color.White,
                         modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Timer toggle
+                IconButton(
+                    onClick = {
+                        timerSeconds = when (timerSeconds) {
+                            0 -> 3
+                            3 -> 5
+                            5 -> 10
+                            else -> 0
+                        }
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Text(
+                        if (timerSeconds > 0) "${timerSeconds}s" else "Off",
+                        color = if (timerSeconds > 0) ChromecoreColors.CyanAccent else Color.White,
+                        fontSize = 12.sp
                     )
                 }
 
@@ -353,8 +406,12 @@ fun CameraScreen() {
 
                 ShutterButton(
                     onClick = {
-                        takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
-                            lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+                        if (timerSeconds > 0) {
+                            countdown = timerSeconds
+                        } else {
+                            takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
+                                lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+                            }
                         }
                     }
                 )
