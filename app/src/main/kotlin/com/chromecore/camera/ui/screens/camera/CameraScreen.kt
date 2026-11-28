@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -120,9 +122,16 @@ fun CameraScreen() {
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
     var focusRingPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+    var exposureIndex by remember { mutableIntStateOf(0) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
+
+    // Get exposure compensation range
+    val exposureState = currentCamera?.cameraInfo?.exposureState
+    val minExposure = exposureState?.exposureCompensationRange?.lower ?: -10
+    val maxExposure = exposureState?.exposureCompensationRange?.upper ?: 10
+    val exposureStep = exposureState?.exposureCompensationStep?.toDouble() ?: 1.0
 
     // Reset zoom when camera switches
     LaunchedEffect(useFrontCamera) {
@@ -259,6 +268,39 @@ fun CameraScreen() {
                         inactiveTrackColor = ChromecoreColors.GraphiteLight
                     )
                 )
+            }
+
+            // Exposure compensation slider (vertical, right side)
+            if (maxExposure > minExposure) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .height(200.dp)
+                ) {
+                    Text(
+                        "${(exposureIndex * exposureStep).toString().take(4)} EV",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Slider(
+                        value = exposureIndex.toFloat(),
+                        onValueChange = { newIndex ->
+                            exposureIndex = newIndex.toInt()
+                            currentCamera?.cameraControl?.setExposureCompensationIndex(exposureIndex)
+                        },
+                        valueRange = minExposure.toFloat()..maxExposure.toFloat(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .width(40.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = ChromecoreColors.CyanAccent,
+                            activeTrackColor = ChromecoreColors.CyanAccent,
+                            inactiveTrackColor = ChromecoreColors.GraphiteLight
+                        )
+                    )
+                }
             }
 
             // Bottom controls
