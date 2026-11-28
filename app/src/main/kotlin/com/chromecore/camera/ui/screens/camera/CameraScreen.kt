@@ -11,12 +11,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -50,12 +55,15 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -64,6 +72,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 enum class FlashMode { OFF, ON, AUTO }
 
@@ -109,6 +118,8 @@ fun CameraScreen() {
     }
 
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
+    var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+    var focusRingPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
@@ -119,13 +130,24 @@ fun CameraScreen() {
         applyZoom(currentCamera, 1f)
     }
 
+    // Hide focus ring after 2 seconds
+    LaunchedEffect(focusRingPosition) {
+        if (focusRingPosition != null) {
+            kotlinx.coroutines.delay(2000)
+            focusRingPosition = null
+        }
+    }
+
     // Settings screen removed until items have real logic (AGENTS.md §2.4)
 
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
             AndroidView(
-                factory = { ctx -> PreviewView(ctx) },
+                factory = { ctx ->
+                    PreviewView(ctx).also { previewViewRef = it }
+                },
                 update = { previewView ->
+                    previewViewRef = previewView
                     bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture) { cam ->
                         currentCamera = cam
                     }
@@ -139,7 +161,35 @@ fun CameraScreen() {
                             applyZoom(currentCamera, newZoom)
                         }
                     )
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            focusRingPosition = offset
+                            val pv = previewViewRef
+                            if (pv != null && pv.width > 0 && pv.height > 0) {
+                                val factory = SurfaceOrientedMeteringPointFactory(
+                                    pv.width.toFloat(),
+                                    pv.height.toFloat()
+                                )
+                                val point = factory.createPoint(offset.x, offset.y)
+                                val action = FocusMeteringAction.Builder(
+                                    point,
+                                    FocusMeteringAction.FLAG_AF
+                                ).setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS).build()
+                                currentCamera?.cameraControl?.startFocusAndMetering(action)
+                            }
+                        }
+                    }
             )
+
+            // Focus ring indicator
+            focusRingPosition?.let { pos ->
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(pos.x.toInt() - 40, pos.y.toInt() - 40) }
+                        .size(80.dp)
+                        .border(2.dp, ChromecoreColors.CyanAccent, CircleShape)
+                )
+            }
 
             // Top controls row
             Row(
