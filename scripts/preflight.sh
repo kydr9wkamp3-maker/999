@@ -42,10 +42,10 @@ if grep -RInE 'TODO\(\)|NotImplementedError' --include='*.kt' app/src/main 2>/de
   say "unimplemented stub in main sources"; fail=1
 fi
 
-if [ "$fail" -ne 0 ]; then say "FAILED"; exit 1; fi
-say "OK"
-
 # 8) Gradle wrapper jar must exist
 if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
   say "gradle/wrapper/gradle-wrapper.jar is missing"; fail=1
 fi
+
+if [ "$fail" -ne 0 ]; then say "FAILED"; exit 1; fi
+say "OK"
