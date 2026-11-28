@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.observeAsState
 import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -111,14 +110,13 @@ fun CameraScreen() {
 
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
 
-    // Observe max zoom from camera
-    val maxZoomState = currentCamera?.cameraInfo?.zoomState?.observeAsState()
-    val maxZoom = maxZoomState?.value?.maxZoomRatio ?: 1f
+    // Get max zoom from camera (re-reads on recomposition)
+    val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
 
     // Reset zoom when camera switches
     LaunchedEffect(useFrontCamera) {
         zoomLevel = 1f
-        applyZoom(currentCamera, 1f, maxZoom)
+        applyZoom(currentCamera, 1f)
     }
 
     // Settings screen removed until items have real logic (AGENTS.md §2.4)
@@ -138,7 +136,7 @@ fun CameraScreen() {
                         state = rememberTransformableState { zoomChange, _, _ ->
                             val newZoom = (zoomLevel * zoomChange).coerceIn(1f, maxZoom)
                             zoomLevel = newZoom
-                            applyZoom(currentCamera, newZoom, maxZoom)
+                            applyZoom(currentCamera, newZoom)
                         }
                     )
             )
@@ -198,7 +196,7 @@ fun CameraScreen() {
                     value = zoomLevel,
                     onValueChange = { newLevel ->
                         zoomLevel = newLevel
-                        applyZoom(currentCamera, newLevel, maxZoom)
+                        applyZoom(currentCamera, newLevel)
                     },
                     valueRange = 1f..maxZoom,
                     modifier = Modifier
@@ -266,10 +264,11 @@ fun CameraScreen() {
     }
 }
 
-// getMaxZoom removed — using observeAsState value directly
+private fun getMaxZoom(camera: Camera?): Float =
+    camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
 
-private fun applyZoom(camera: Camera?, level: Float, maxZoom: Float = 1f) {
-    camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, maxZoom))
+private fun applyZoom(camera: Camera?, level: Float) {
+    camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, getMaxZoom(camera)))
 }
 
 private fun FlashMode.next(): FlashMode = when (this) {
