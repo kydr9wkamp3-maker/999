@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -130,6 +131,7 @@ fun CameraScreen() {
     var timerSeconds by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableIntStateOf(0) }
     var isCountingDown by remember { mutableStateOf(false) }
+    var showDeviceLab by remember { mutableStateOf(false) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
@@ -167,6 +169,14 @@ fun CameraScreen() {
                 lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
             }
         }
+    }
+
+    // Device Lab
+    if (showDeviceLab) {
+        com.chromecore.camera.ui.screens.devicelab.DeviceLabScreen(
+            onBack = { showDeviceLab = false }
+        )
+        return
     }
 
     // Settings screen removed until items have real logic (AGENTS.md §2.4)
@@ -311,6 +321,19 @@ fun CameraScreen() {
                         if (timerSeconds > 0) "${timerSeconds}s" else "Off",
                         color = if (timerSeconds > 0) ChromecoreColors.CyanAccent else Color.White,
                         fontSize = 12.sp
+                    )
+                }
+
+                // Device Lab button
+                IconButton(
+                    onClick = { showDeviceLab = true },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        "Device Lab",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
