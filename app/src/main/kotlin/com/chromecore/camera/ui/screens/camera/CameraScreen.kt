@@ -273,7 +273,7 @@ fun CameraScreen() {
 }
 
 private fun getMaxZoom(camera: Camera?): Float =
-    camera?.cameraInfo?.zoomState?.value?.maxZoomFactor ?: 1f
+    camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
 
 private fun applyZoom(camera: Camera?, level: Float) {
     camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, getMaxZoom(camera)))
