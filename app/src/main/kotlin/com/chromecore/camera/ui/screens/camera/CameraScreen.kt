@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -42,6 +43,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import com.chromecore.camera.ui.components.ShutterButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,6 +104,14 @@ fun CameraScreen() {
     }
 
     var currentCamera by remember { mutableStateOf<Camera?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    if (showSettings) {
+        com.chromecore.camera.ui.screens.settings.SettingsScreen(
+            onBack = { showSettings = false }
+        )
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
@@ -138,6 +148,19 @@ fun CameraScreen() {
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Settings button
+                IconButton(
+                    onClick = { showSettings = true },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Settings,
+                        "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
                 // Flash toggle
                 IconButton(
                     onClick = {
@@ -216,30 +239,13 @@ fun CameraScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Shutter button
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(ChromecoreColors.CyanAccent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconButton(
-                        onClick = {
-                            takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
-                                lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
-                            }
-                        },
-                        modifier = Modifier.size(72.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Cameraswitch,
-                            "Capture",
-                            tint = Color.Black,
-                            modifier = Modifier.size(36.dp)
-                        )
+                ShutterButton(
+                    onClick = {
+                        takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
+                            lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+                        }
                     }
-                }
+                )
             }
         } else {
             Column(
