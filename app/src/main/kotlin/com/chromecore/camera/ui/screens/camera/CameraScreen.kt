@@ -132,6 +132,7 @@ fun CameraScreen() {
     var countdown by remember { mutableIntStateOf(0) }
     var isCountingDown by remember { mutableStateOf(false) }
     var showDeviceLab by remember { mutableStateOf(false) }
+    var showGallery by remember { mutableStateOf(false) }
 
     // Get max zoom from camera (re-reads on recomposition)
     val maxZoom = currentCamera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
@@ -175,6 +176,14 @@ fun CameraScreen() {
     if (showDeviceLab) {
         com.chromecore.camera.ui.screens.devicelab.DeviceLabScreen(
             onBack = { showDeviceLab = false }
+        )
+        return
+    }
+
+    // Gallery
+    if (showGallery) {
+        com.chromecore.camera.ui.screens.gallery.GalleryScreen(
+            onBack = { showGallery = false }
         )
         return
     }
@@ -414,30 +423,50 @@ fun CameraScreen() {
             }
 
             // Bottom controls
-            Column(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                lastSavedMessage?.let { msg ->
-                    Text(
-                        msg,
-                        color = ChromecoreColors.SuccessGreen,
-                        fontSize = 14.sp
+                // Gallery button (left)
+                IconButton(
+                    onClick = { showGallery = true },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Info, // Using Info as placeholder, Gallery icon not in default set
+                        "Gallery",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                ShutterButton(
-                    onClick = {
-                        if (timerSeconds > 0) {
-                            countdown = timerSeconds
-                        } else {
-                            takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
-                                lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+                // Shutter button (center)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    lastSavedMessage?.let { msg ->
+                        Text(
+                            msg,
+                            color = ChromecoreColors.SuccessGreen,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    ShutterButton(
+                        onClick = {
+                            if (timerSeconds > 0) {
+                                countdown = timerSeconds
+                            } else {
+                                takePhotoToGallery(context, imageCapture, cameraExecutor) { uri ->
+                                    lastSavedMessage = if (uri != null) "Saved to gallery" else "Capture failed"
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
+
+                // Spacer (right) - for symmetry
+                Spacer(modifier = Modifier.size(48.dp))
             }
         } else {
             Column(
