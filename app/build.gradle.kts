@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
     implementation(libs.coil.compose)
+    implementation("androidx.compose.foundation:foundation:1.7.6")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.junit.ext)
