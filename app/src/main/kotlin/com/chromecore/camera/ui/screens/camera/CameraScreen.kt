@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -16,25 +17,35 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.FlashAuto
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,6 +64,8 @@ import com.chromecore.camera.ui.theme.ChromecoreColors
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+enum class FlashMode { OFF, ON, AUTO }
+
 @Composable
 fun CameraScreen() {
     val context = LocalContext.current
@@ -61,6 +74,8 @@ fun CameraScreen() {
     var permissionRequested by remember { mutableStateOf(false) }
     var lastSavedMessage by remember { mutableStateOf<String?>(null) }
     var useFrontCamera by remember { mutableStateOf(false) }
+    var flashMode by remember { mutableStateOf(FlashMode.OFF) }
+    var zoomLevel by remember { mutableFloatStateOf(1f) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -86,33 +101,104 @@ fun CameraScreen() {
             .build()
     }
 
+    var currentCamera by remember { mutableStateOf<Camera?>(null) }
+
     Box(modifier = Modifier.fillMaxSize().background(ChromecoreColors.ObsidianBlack)) {
         if (hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
                     PreviewView(ctx).also { previewView ->
-                        bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture)
+                        bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture) { cam ->
+                            currentCamera = cam
+                        }
                     }
                 },
                 update = { previewView ->
-                    bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture)
+                    bindCamera(previewView, lifecycleOwner, useFrontCamera, imageCapture) { cam ->
+                        currentCamera = cam
+                    }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .transformable(
+                        state = rememberTransformableState { zoomChange, _, _ ->
+                            val maxZoom = getMaxZoom(currentCamera)
+                            val newZoom = (zoomLevel * zoomChange).coerceIn(1f, maxZoom)
+                            zoomLevel = newZoom
+                            applyZoom(currentCamera, newZoom)
+                        }
+                    )
             )
 
-            // Switch camera button
-            IconButton(
-                onClick = { useFrontCamera = !useFrontCamera },
+            // Top controls row
+            Row(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .size(48.dp)
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    Icons.Default.Cameraswitch,
-                    "Switch Camera",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                // Flash toggle
+                IconButton(
+                    onClick = {
+                        flashMode = flashMode.next()
+                        applyFlash(currentCamera, flashMode)
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = when (flashMode) {
+                            FlashMode.OFF -> Icons.Default.FlashOff
+                            FlashMode.ON -> Icons.Default.FlashOn
+                            FlashMode.AUTO -> Icons.Default.FlashAuto
+                        },
+                        contentDescription = "Flash mode: $flashMode",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Zoom level indicator
+                Text(
+                    "${"%.1f".format(zoomLevel)}x",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                // Switch camera button
+                IconButton(
+                    onClick = { useFrontCamera = !useFrontCamera },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Cameraswitch,
+                        "Switch Camera",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            // Zoom slider
+            val maxZoom = getMaxZoom(currentCamera)
+            if (maxZoom > 1f) {
+                Slider(
+                    value = zoomLevel,
+                    onValueChange = { newLevel ->
+                        zoomLevel = newLevel
+                        applyZoom(currentCamera, newLevel)
+                    },
+                    valueRange = 1f..maxZoom,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(0.7f)
+                        .padding(bottom = 120.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = ChromecoreColors.CyanAccent,
+                        activeTrackColor = ChromecoreColors.CyanAccent,
+                        inactiveTrackColor = ChromecoreColors.GraphiteLight
+                    )
                 )
             }
 
@@ -186,11 +272,33 @@ fun CameraScreen() {
     }
 }
 
+private fun getMaxZoom(camera: Camera?): Float =
+    camera?.cameraInfo?.zoomState?.value?.maxZoomFactor ?: 1f
+
+private fun applyZoom(camera: Camera?, level: Float) {
+    camera?.cameraControl?.setZoomRatio(level.coerceIn(1f, getMaxZoom(camera)))
+}
+
+private fun FlashMode.next(): FlashMode = when (this) {
+    FlashMode.OFF -> FlashMode.AUTO
+    FlashMode.AUTO -> FlashMode.ON
+    FlashMode.ON -> FlashMode.OFF
+}
+
+private fun applyFlash(camera: Camera?, mode: FlashMode) {
+    when (mode) {
+        FlashMode.OFF -> camera?.cameraControl?.enableTorch(false)
+        FlashMode.ON -> camera?.cameraControl?.enableTorch(true)
+        FlashMode.AUTO -> camera?.cameraControl?.enableTorch(false)
+    }
+}
+
 private fun bindCamera(
     previewView: PreviewView,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
     useFrontCamera: Boolean,
-    imageCapture: ImageCapture
+    imageCapture: ImageCapture,
+    onCameraReady: (Camera) -> Unit
 ) {
     val context = previewView.context
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -206,9 +314,10 @@ private fun bindCamera(
                 CameraSelector.DEFAULT_BACK_CAMERA
             }
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
+            val cam = cameraProvider.bindToLifecycle(
                 lifecycleOwner, cameraSelector, preview, imageCapture
             )
+            onCameraReady(cam)
             Log.i("CameraScreen", "Camera bound: front=$useFrontCamera")
         } catch (e: Exception) {
             Log.e("CameraScreen", "Camera bind failed", e)
